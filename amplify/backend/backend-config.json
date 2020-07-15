@@ -1,15 +1,32 @@
 {
-	"auth": {
-		"covidappba83f28f": {
-			"service": "Cognito",
-			"providerPlugin": "awscloudformation",
-			"dependsOn": []
-		}
-	},
-	"storage": {
-		"covidStorage": {
-			"service": "S3",
-			"providerPlugin": "awscloudformation"
-		}
-	}
+    "auth": {
+        "covid19l3netapp416d186f": {
+            "service": "Cognito",
+            "providerPlugin": "awscloudformation",
+            "dependsOn": []
+        }
+    },
+    "storage": {
+        "covidApp": {
+            "service": "S3",
+            "providerPlugin": "awscloudformation"
+        }
+    },
+    "api": {
+        "covidQL": {
+            "service": "AppSync",
+            "providerPlugin": "awscloudformation",
+            "output": {
+                "authConfig": {
+                    "additionalAuthenticationProviders": [],
+                    "defaultAuthentication": {
+                        "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+                        "userPoolConfig": {
+                            "userPoolId": "authcovid19l3netapp416d186f"
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,26 +1,26 @@
 import { API, graphqlOperation } from "aws-amplify";
-import { getSiegesByUserId, createSiege, updateSiege, deleleSiege } from "./graphql";
+import { getfilesByUserId, createfile, updatefile, delelefile } from "./graphql";
 
-export async function siegeByUserId(
+export async function listFiles(
   { commit },
-  { userId, paginationToken = "" }
+  { paginationToken = "" }
 ) {
   console.log(paginationToken);
   try {
-    console.group("store/siege/actions/getSiegesByUserId");
+    console.group("store/file/actions/listFiles");
     commit("SET_LOADER", true);
-    commit("SET_SIEGE", "");
+    commit("SET_FILES", "");
 
     var nextToken = paginationToken || null;
 
     const {
       // @ts-ignore
-      data: { siegeByUserId: siegeData, nextToken: paginationToken }
-    } = await API.graphql(graphqlOperation(getSiegesByUserId, { userId: userId, nextToken: nextToken })
+      data: { listFiles: filesData, nextToken: paginationToken }
+    } = await API.graphql(graphqlOperation(getfilesByUserId, { nextToken: nextToken })
       );
     
-    commit("SET_SIEGE", siegeData["items"]);
-    commit("SET_SIEGE_PAGINATION", paginationToken);
+    commit("SET_FILE", filesData["items"]);
+    commit("SET_FILE_PAGINATION", paginationToken);
     commit("SET_LOADER", false);
     console.groupEnd();
   } catch (error) {
@@ -31,18 +31,18 @@ export async function siegeByUserId(
 }
 
 
-export async function saveSiege({ commit },
+export async function savefile({ commit },
   { id, name, code, desc, interval, timeZone, startDate, endDate, createdBy, createdAt, expireAt }) {
   try {
-    console.group("store/siege/actions/saveSiege");
+    console.group("store/file/actions/savefile");
     commit("SET_LOADER", true);
     let result = "";
 
     if (id != null && id.length > 2) {
       const {
         // @ts-ignore
-        data: { updateSiege: siegeId }
-      } = await API.graphql(graphqlOperation(updateSiege, {
+        data: { updatefile: fileId }
+      } = await API.graphql(graphqlOperation(updatefile, {
         id: id,
         name: name,
         desc: desc,
@@ -55,14 +55,14 @@ export async function saveSiege({ commit },
         createdAt: createdAt,
         expireAt: expireAt
       }));
-      console.log(siegeId);
-      result = `${siegeId}`
+      console.log(fileId);
+      result = `${fileId}`
     } else {
       var d = new Date();
       const {
         // @ts-ignore
-        data: { createSiege: siegeId }
-      } = await API.graphql(graphqlOperation(createSiege, {
+        data: { createfile: fileId }
+      } = await API.graphql(graphqlOperation(createfile, {
         name: name,
         desc: desc,
         code: d.getMilliseconds(),
@@ -74,8 +74,8 @@ export async function saveSiege({ commit },
         createdAt: createdAt,
         expireAt: expireAt
       }));
-      console.log(siegeId);
-      result = `${siegeId}`
+      console.log(fileId);
+      result = `${fileId}`
     }
 
     commit("SET_LOADER", false);
@@ -89,18 +89,18 @@ export async function saveSiege({ commit },
   }
 }
 
-export async function delSiege({ commit }, { id }) {
+export async function delfile({ commit }, { id }) {
   try {
-    console.group("store/calendar/actions/delSiege");
+    console.group("store/calendar/actions/delfile");
     console.log(id)
     commit("SET_LOADER", true);
 
     if (id != null && id.length > 2) {
-      console.log("calling deleteSiege")
+      console.log("calling deletefile")
       const {
         // @ts-ignore
-        data: { deleleSiege: slotId }
-      } = await API.graphql(graphqlOperation(deleleSiege, { id: id }));
+        data: { delelefile: slotId }
+      } = await API.graphql(graphqlOperation(delelefile, { id: id }));
       console.log(slotId);
       commit("SET_LOADER", false);
       console.groupEnd();

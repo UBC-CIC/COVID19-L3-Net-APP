@@ -75,7 +75,7 @@
       <div class="col-5">
         <q-card class="my-card">
           <q-card-section>
-            <div class="text-h6">Sending file to the Model</div>
+            <div class="text-h6">Files submitted</div>
             <div class="text-subtitle2">Click on the file to send it to be processed</div>
           </q-card-section>
           <q-separator />
@@ -150,7 +150,13 @@ export default {
 
         reader.onload = function(event) {
           var contents = event.target.result;
-          Storage.put(f.file.name, contents, {
+          Storage.put(f.file.name.toLowerCase() + ".status", '{ "code": 0, "msg": "Sent to the queue" }', { 
+                 level: "private",
+                 contentType: "application/json" })
+                .then (rst => console.log(rst))
+                .catch(error => console.log(error));
+
+          Storage.put(f.file.name.toLowerCase(), contents, {
             level: "private",
             contentType: "application/zip",
             progressCallback(progress) {
@@ -165,8 +171,8 @@ export default {
                  position: "top",
                  icon: "done",
                  message: "File uploaded successfully: " + result.key 
-               });
-            })
+               });               
+              })
             .catch(err => console.log(err));
         };
 

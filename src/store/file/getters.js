@@ -5,8 +5,8 @@
  * @see {@link getSession} for more information on action that calls isAuthenticated
  */  
 
-  export const hasSiegeData = state => {
-    console.log("hasSiegeData: " + !!state.data);
-    return !!state.data;
+  export const hasFiles = state => {
+    console.log("hasSiegeData: " + !!state.files);
+    return !!state.files;
   };
     

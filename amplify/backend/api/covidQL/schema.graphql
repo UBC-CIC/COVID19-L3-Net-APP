@@ -1,0 +1,32 @@
+type AppFile @model (subscriptions: null)
+	@auth(rules: [
+		{ allow: owner },
+		{ allow: private, operations: [read] }
+		]
+	)
+    @key(name: "ByName", fields: ["ctName", "status"], queryField: "ByName") {
+	id: ID!
+	ctName: String!    
+    ctSize: String!
+    ctCreatedAt: AWSTimestamp
+    status: Status
+    expireAt: Int
+    resultName: String
+    resultSize: String
+    resultCreatedAt: AWSTimestamp
+}
+
+enum Status {
+    WAITING    
+    PROCESSING
+    INVALID_FILE
+    TIMEOUT
+    UNKNOWN
+    READY
+}
+
+input FileInput {
+    id: ID!
+	name: String!
+    size: String!
+}

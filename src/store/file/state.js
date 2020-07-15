@@ -6,7 +6,7 @@
  * @see {@link fetchByFlightNumber} for more info on module action
  */
 export default {
-    data: [],
+    files: [],
     loading: false,
     paginationToken: ""
   };
