@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md row items-start q-gutter-md">
-    <q-markup-table style="max-width: 500px">
+    <q-markup-table>
       <thead>
         <tr>
           <th class="text-right"></th>
