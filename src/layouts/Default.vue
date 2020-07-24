@@ -37,7 +37,7 @@ export default {
   computed: {
     ...mapGetters({
       isAuthenticated: "profile/isAuthenticated",
-      email: "profile/email"  
+      email: "profile/email"
     })
   }
 };

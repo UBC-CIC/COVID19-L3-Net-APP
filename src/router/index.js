@@ -4,8 +4,10 @@ import store from "../store";
 
 import DefaultLayout from '../layouts/Default.vue'
 import SimpleLayout from '../layouts/Simple.vue'
+import UBCLayout from '../layouts/UBC.vue'
 import Home from '../views/Home.vue'
-import Predict from '../views/Predict.vue'
+//import Predict from '../views/Predict.vue'
+import ModelVisualization from '../views/ModelVisualization.vue'
 import SignIn from '../views/SignIn.vue'
 import SignUp from '../views/SignUp.vue'
 import ForgotPassword from '../views/ForgotPassword.vue'
@@ -24,19 +26,32 @@ const router = new VueRouter({
           component: Home,
           meta: { requiresAuth: true, name: 'Home' }
         },
-        {
-          path: "/p/:code",
-          name: "predict",
-          component: Predict,
-          //props: route => ({ ...route.params, ...route.query }), // converts query strings and params to props
-          meta: { name: 'predict' }
-        },
+        // {
+        //   path: "/p/:code",
+        //   name: "predict",
+        //   component: Predict,
+        //   //props: route => ({ ...route.params, ...route.query }), // converts query strings and params to props
+        //   meta: { name: 'predict' }
+        // },        
         {
           path: '/about',
           name: 'about',
           component: () => import(/* webpackChunkName: "about" */ '../views/About.vue'),
           meta: { requiresAuth: true, name: 'About' }
         }   
+      ]
+    },
+    {
+      path: "/ubclayout",
+      component: UBCLayout,
+      children: [
+        {
+          path: "/v/:code",
+          name: "visualize",
+          component: ModelVisualization,
+          props: route => ({ ...route.params, ...route.query }), // converts query strings and params to props
+          meta: { name: 'visualization' }
+        },
       ]
     },
     {

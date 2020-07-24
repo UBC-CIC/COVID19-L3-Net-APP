@@ -17,6 +17,7 @@
 
           <q-card-actions>
             <q-file
+              id="qfile"
               style="max-width: 450px"
               v-model="files"
               @input="updateFiles"
@@ -54,13 +55,12 @@
 
               <template v-slot:after v-if="canUpload">
                 <q-btn
-                  color="primary"
-                  dense
-                  icon="cloud_upload"
-                  round
+                  class="ubc-color"
+                  icon="arrow_circle_up"
                   @click="upload"
                   :disable="!canUpload"
                   :loading="isUploading"
+                  label="Upload"
                 ></q-btn>
               </template>
             </q-file>
@@ -75,13 +75,21 @@
       <div class="col-7">
         <q-card class="my-card">
           <q-card-section>
-            <div class="text-h6">Files submitted</div>
-            <div class="text-subtitle2">Click on the file to send it to be processed</div>
+            <div class="text-h6">
+              Files submitted
+              <span class></span>
+            </div>
+            <div class="text-subtitle2">
+              <span> 
+                <q-btn flat round color="primary" icon="refresh"  @click="forceRenderFileTable"/></span> 
+                Please, click on the refresh button to update the status
+            </div>
           </q-card-section>
+
           <q-separator />
           <q-card-actions vertical>
-            <FileTable :key="updateTigger" @forceRenderFileTable="forceRenderFileTable" />            
-          </q-card-actions>
+            <FileTable :key="updateTigger" @forceRenderFileTable="forceRenderFileTable" />
+          </q-card-actions>           
         </q-card>
       </div>
     </div>
@@ -89,6 +97,7 @@
 </template>
 
 <script type="text/javascript">
+import { mapState } from "vuex";
 import { Storage } from "aws-amplify";
 import FileTable from "../components/FileTable";
 
@@ -109,6 +118,9 @@ export default {
   },
 
   computed: {
+    ...mapState({
+      user: state => state.profile.user
+    }),
     isUploading() {
       return this.uploading !== null;
     },
@@ -140,9 +152,8 @@ export default {
 
     upload() {
       this.uploadProgress.forEach(f => {
-
         if (f.file.size === 0) {
-            return;
+          return;
         }
 
         const reader = new FileReader();
@@ -150,11 +161,14 @@ export default {
 
         reader.onload = function(event) {
           var contents = event.target.result;
-          Storage.put(f.file.name.toLowerCase() + ".status", '{ "code": 0, "msg": "Sent to the queue" }', { 
-                 level: "private",
-                 contentType: "application/json" })
-                .then (rst => console.log(rst))
-                .catch(error => console.log(error));
+          Storage.put(
+            f.file.name.toLowerCase() + ".status",
+            '{ "code": 0, "msg": "Sent to the queue" }',
+            {
+              level: "private",
+              contentType: "application/json"
+            }
+          ).catch(error => console.log(error));
 
           Storage.put(f.file.name.toLowerCase(), contents, {
             level: "private",
@@ -164,15 +178,16 @@ export default {
               f.percent = progress.loaded / progress.total;
             }
           })
-            .then(result => { 
+            .then(result => {
               vm.forceRenderFileTable();
-               vm.$q.notify({
-                 color: "primary",
-                 position: "top",
-                 icon: "done",
-                 message: "File uploaded successfully: " + result.key 
-               });               
-              })
+              vm.$q.notify({
+                color: "primary",
+                position: "top",
+                icon: "done",
+                message: "File uploaded successfully: " + result.key
+              });
+
+            })
             .catch(err => console.log(err));
         };
 
@@ -181,8 +196,8 @@ export default {
             "File could not be read! Code " + event.target.error.code
           );
         };
-        reader.readAsArrayBuffer(f.file);        
-      });      
+        reader.readAsArrayBuffer(f.file);
+      });
     },
 
     forceRenderFileTable() {
@@ -190,7 +205,9 @@ export default {
     },
 
     checkFileSize(files) {
-      return files.filter(file => file.size < process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES);
+      return files.filter(
+        file => file.size < process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES
+      );
     },
 
     checkFileType(files) {

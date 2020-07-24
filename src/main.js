@@ -10,6 +10,9 @@ Vue.prototype.$http = axios
 
 Vue.config.productionTip = false
 
+import moment from 'moment-timezone'
+Vue.prototype.$moment = moment
+
 import Amplify, * as AmplifyModules from 'aws-amplify'
 
 import { AmplifyPlugin } from 'aws-amplify-vue'

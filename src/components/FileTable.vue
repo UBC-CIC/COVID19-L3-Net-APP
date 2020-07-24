@@ -3,12 +3,12 @@
     <q-markup-table>
       <thead>
         <tr>
-          <th class="text-right"></th>
+          <th class="text-right"><q-btn flat color="black" icon="delete_outlined" /></th>
           <th class="text-left">File Name</th>
           <th class="text-center">Size</th>
           <th class="text-center">Date</th>
           <th class="text-center">Status</th>          
-          <th class="text-right"></th>
+          <th class="text-right"><q-btn flat color="black" icon="insert_chart_outlined" /></th>
         </tr>
       </thead>
       <tbody>
@@ -34,8 +34,8 @@
               >{{ val.status["msg"] }}</q-tooltip>
             </q-btn></td>          
           <td class="text-center">
-            <router-link :to="{ name: 'predict', params: { code: val.key }}">
-              <q-btn disable flat color="black" icon="insert_chart_outlined">
+            <router-link :to="{ name: 'visualize', params: { code: val.code }}">              
+              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined">
                 <q-tooltip
                   content-class="bg-black"
                   content-style="font-size: 16px"
@@ -54,7 +54,6 @@
 import { mapState } from "vuex";
 import axios from "axios";
 import { Storage } from "aws-amplify";
-import { date } from 'quasar'
 
 function prettySize(bytes, separator = "", postFix = "") {
   if (bytes) {
@@ -107,18 +106,22 @@ export default {
               btn.color = "orange"
               btn.icon = "query_builder"
             } else if (status["code"] == 1) {
-              btn.color = "green"
-              btn.icon = "check_circle_outline"
+              btn.color = "orange"
+              btn.icon = "build_circle"
             } else if (status["code"] == 2) {
+              btn.color = "green"
+              btn.icon = "check_circle"            
+            } else if (status["code"] == 3) {
               btn.color = "red"
-              btn.icon = "error_outline"
+              btn.icon = "error"
             } else {
               btn.color = "red"
-              btn.icon = "help_outline"
+              btn.icon = "help"
             }
-            let uploadAt = date.formatDate(listFiles[i].lastModified, 'DD MMM HH:mm')
+            let uploadAt = this.$moment(listFiles[i].lastModified).format('DD MMM HH:mm')
             let size = prettySize(listFiles[i].size);
-            this.filesTable.push({ key: filename, status: status, btn: btn, size: size, uploadat: uploadAt });
+            let code = filename.substring(0, filename.length - 4) + '-' + this.$moment.utc(listFiles[i].lastModified).format("YYYYMMDDHHmm")
+            this.filesTable.push({ key: filename, status: status, btn: btn, size: size, uploadat: uploadAt, code: code });            
           }
         }
       }
