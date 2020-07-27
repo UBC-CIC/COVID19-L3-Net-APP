@@ -33,8 +33,15 @@
                 :offset="[10, 10]"
               >{{ val.status["msg"] }}</q-tooltip>
             </q-btn></td>          
-          <td class="text-center">
-            <router-link :to="{ name: 'visualize', params: { code: val.code }}">              
+          <td class="text-center">           
+              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined" @click="mlview(val.code)">
+                <q-tooltip
+                  content-class="bg-black"
+                  content-style="font-size: 16px"
+                  :offset="[10, 10]"
+                >Visualize ML model</q-tooltip>
+              </q-btn>
+            <!-- <router-link :to="{ name: 'visualize', params: { code: val.code }}">              
               <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined">
                 <q-tooltip
                   content-class="bg-black"
@@ -42,7 +49,7 @@
                   :offset="[10, 10]"
                 >Visualize ML model</q-tooltip>
               </q-btn>
-            </router-link>
+            </router-link> -->
           </td>
         </tr>
       </tbody>
@@ -93,6 +100,11 @@ export default {
   },
 
   methods: {
+    mlview(code) {
+      var url = process.env.VUE_APP_CLOUDFRONT_URL + '/html/' + code + '/index.html';
+      var win = window.open(url, '_blank');
+      win.focus();      
+    },
     async mountFilesTable() {
       this.filesTable = [];
       let btn = {}

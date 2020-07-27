@@ -68,7 +68,7 @@
 
           <q-separator inset />
 
-          <q-card-section>After all the files have been successfully uploaded you can move to the next step</q-card-section>
+          <q-card-section><span class="text-body1">After all the files have been successfully uploaded you can move to the next step</span></q-card-section>
         </q-card>
       </div>
       <div class="col-1"></div>
@@ -80,7 +80,7 @@
               <span class></span>
             </div>
             <div class="text-subtitle2">
-              <span> 
+              <span class="text-body1"> 
                 <q-btn flat round color="primary" icon="refresh"  @click="forceRenderFileTable"/></span> 
                 Please, click on the refresh button to update the status
             </div>
