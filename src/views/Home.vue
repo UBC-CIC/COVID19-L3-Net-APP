@@ -24,7 +24,6 @@
               outlined
               label="CTScans (zip only)"
               multiple
-              :max-file-size="max_upload_size"
               :clearable="!isUploading"
               :filter="checkFileType"
               @rejected="onRejected"
