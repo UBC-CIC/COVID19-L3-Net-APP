@@ -112,7 +112,7 @@ export default {
       files: null,
       uploadProgress: [],
       uploading: null,
-      max_upload_size: process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES,
+      //max_upload_size: process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES,
       updateTigger: 0
     };
   },
