@@ -106,14 +106,14 @@ export default {
       win.focus();      
     },
     async mountFilesTable() {
-      this.filesTable = [];
-      let btn = {}
+      this.filesTable = [];      
       let listFiles = await this.listStorageFiles();
       for (let i = 0; i < listFiles.length; ++i) {
         if (listFiles[i].key) {
           let filename = listFiles[i].key          
           if (filename.substring(filename.length - 3, filename.length) == "zip") {            
             let status = await this.getFileStatus(filename + ".status")
+            let btn = {}
             if (status["code"] == 0) {
               btn.color = "orange"
               btn.icon = "query_builder"
