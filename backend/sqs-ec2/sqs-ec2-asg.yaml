@@ -25,15 +25,12 @@ Metadata:
 Parameters:
   s3Bucket:
     Type: String
-    Default: covid-bucket-app233508-dev
   Ec2KeyName:
-    Type: String
-    Default: cic-vgh-yul
+    Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
     Type: String 
-    Default: ami-0d38e97da1cd3342a
-    #Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    #Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-ecs-gpu-hvm-x86_64-ebs'    
+    Default: ami-09b68fc50a472cc10
+    # Deep Learning AMI (Amazon Linux 2) 
   desiredCapacity:
     Default: 0
     Description: Desired capacity
@@ -451,7 +448,7 @@ Resources:
               - |-
                 #!/bin/bash -xe
                 yum -y install git
-                cd /root && git clone https://github.com/arturlr/sqs-ec2-spot-asg.git
+                cd /root && git clone https://github.com/UBC-CIC/COVID19-L3-Net-APP.git
                 bash /root/sqs-ec2-spot-asg/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain}
               - cloudfrontDomain: 
                   Fn::GetAtt:
