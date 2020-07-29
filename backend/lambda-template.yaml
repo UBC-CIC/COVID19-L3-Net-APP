@@ -6,10 +6,8 @@ Description: >
 Parameters:
   s3Bucket:
     Type: String
-    Default: covid-bucket-app233508-dev
   queueName:
     Type: String
-    Default: L3-COVID19-Launcher-sqsQueue-12OAWLZ3FLUYY
 
 Globals:
   Function:
