@@ -162,7 +162,7 @@ export default {
           var contents = event.target.result;
           Storage.put(
             f.file.name.toLowerCase() + ".status",
-            '{ "code": 0, "msg": "Sent to the queue" }',
+            '{ "code": 0, "msg": "Sent to validation" }',
             {
               level: "private",
               contentType: "application/json"
