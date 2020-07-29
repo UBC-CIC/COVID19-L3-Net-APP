@@ -1,0 +1,19 @@
+# Location: /etc/systemd/system/spot-instance-interruption-notice-handler.service
+# systemctl enable spot-instance-interruption-notice-handler
+# systemctl start spot-instance-interruption-notice-handler
+# systemctl | grep spot-instance-interruption-notice-handler
+# https://www.freedesktop.org/software/systemd/man/systemd.unit.html
+
+[Unit]
+Description=Start spot instance interruption handler monitoring script 
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/spot-instance-interruption-notice-handler.sh
+KillMode=process
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target

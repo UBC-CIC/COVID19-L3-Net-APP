@@ -1,0 +1,19 @@
+# Location: /etc/systemd/system/worker.service
+# systemctl enable worker
+# systemctl start worker
+# systemctl | grep worker
+# https://www.freedesktop.org/software/systemd/man/systemd.unit.html
+
+[Unit]
+Description=COVID19-L3-Net Worker 
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/worker.sh
+KillMode=process
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target

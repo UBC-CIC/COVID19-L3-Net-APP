@@ -1,0 +1,636 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 Auto Scaling group using EC2 Spot Instances, automatically scaling
+  based on SQS queue depth
+  
+Mappings:
+  CidrMappings:
+    vpc:
+      CIDR: 172.17.0.0/16  
+   
+Metadata:
+  Author:
+    Description: Ran Sheinberg <ranshein@amazon.com>, Chad Schmutzer <schmutze@amazon.com>
+  License:
+    Description: 'Copyright 2019 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+
+      Licensed under the Amazon Software License (the "License"). You may not use this file
+      except in compliance with the License. A copy of the License is located at
+
+      http://aws.amazon.com/asl/
+
+      or in the "license" file accompanying this file. This file is distributed on an "AS IS"
+      BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+      License for the specific language governing permissions and limitations under the License.'
+
+Parameters:
+  s3Bucket:
+    Type: String
+    Default: covid-bucket-app233508-dev
+  Ec2KeyName:
+    Type: String
+    Default: cic-vgh-yul
+  amazonLinuxAmi:
+    Type: String 
+    Default: ami-0d38e97da1cd3342a
+    #Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    #Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-ecs-gpu-hvm-x86_64-ebs'    
+  desiredCapacity:
+    Default: 0
+    Description: Desired capacity
+    Type: Number
+  maxSize:
+    Default: 2
+    Description: Maximum capacity
+    Type: Number
+  minSize:
+    Default: 0
+    Description: Mininum capacity
+    Type: Number
+  asgCooldown:
+    Default: 30
+    Description: Scaling policy cooldown duration (secs)
+    Type: Number
+    MinValue: 10
+  asgWarmup:
+    Default: 420
+    Description: Steped Scaling policy warmup duration (secs)
+    Type: Number
+    MinValue: 10
+  asgScaleOutThreshold:
+    Default: 1
+    Description: Queue depth threshold for scale-out
+    Type: Number
+    MinValue: 1
+  asgScaleInThreshold:
+    Default: 0
+    Description: Queue depth threshold for scale-in
+    Type: Number
+  asgScaleInEvaluationPeriods:
+    Default: 1
+    Description: Evaluation periods for scale-in actions
+    Type: Number
+    MinValue: 1
+  asgScaleOutEvaluationPeriods:
+    Default: 1
+    Description: Evaluation periods for scale-out actions
+    Type: Number
+    MinValue: 1
+  asgEvaluationPeriodDuration:
+    Default: 120
+    Description: Evaluation period duration (secs) for scale-out / scale-in actions
+    Type: Number
+    MinValue: 60
+
+
+Resources:
+#  publicBucket:
+#  Type: AWS::S3::Bucket
+#  Properties:
+#    AccessControl: PublicRead
+#    WebsiteConfiguration:
+#      IndexDocument: index.html
+#      ErrorDocument: error.html
+#    LifecycleConfiguration:
+#      Rules:
+#        - Id: DeleteRecordsAfter2Days
+#          ExpirationInDays: 2
+#          Status: Enabled
+#          Prefix: "dcm"
+#        - Id: DeleteAthenaReportsAfter2Days
+#          ExpirationInDays: 2
+#          Status: Enabled
+#          Prefix: "png"
+#
+#  publicBucketPolicy:
+#    Type: AWS::S3::BucketPolicy
+#    Properties:
+#      PolicyDocument:
+#        Id: MyPolicy
+#        Version: 2012-10-17
+#        Statement:
+#          - Sid: PublicReadForGetBucketObjects
+#            Effect: Allow
+#            Principal: '*'
+#            Action: 's3:GetObject'
+#            Resource: !Join 
+#              - ''
+#              - - 'arn:aws:s3:::'
+#                - !Ref publicBucket
+#                - /*
+#      Bucket: !Ref publicBucket
+
+  cloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties: 
+      DistributionConfig:
+        Origins:
+          - DomainName: !Join
+              - ''
+              - - !Ref s3Bucket
+                - .s3.amazonaws.com
+            OriginPath: /public
+            Id: !Ref s3Bucket
+            S3OriginConfig:
+              OriginAccessIdentity: origin-access-identity/cloudfront/E2NB57AT2RC1MG
+        Enabled: true
+        DefaultCacheBehavior:
+            AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            TargetOriginId: !Ref s3Bucket
+            ForwardedValues:
+              QueryString: 'false'
+              Cookies:
+                Forward: none
+            ViewerProtocolPolicy: allow-all
+
+  attachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+    - vpc
+    - internetGateway
+    Properties:
+      InternetGatewayId:
+        Ref: internetGateway
+      VpcId:
+        Ref: vpc
+    
+  autoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+    - launchTemplate
+    - publicSubnet1
+    - publicSubnet2
+    - autoScalingServiceLinkedRole
+    Properties:
+      DesiredCapacity:
+        Ref: desiredCapacity
+      HealthCheckType: EC2
+      MaxSize:
+        Ref: maxSize
+      MinSize:
+        Ref: minSize
+      MixedInstancesPolicy:
+        InstancesDistribution:
+          OnDemandBaseCapacity: 1
+          OnDemandPercentageAboveBaseCapacity: 25
+          SpotAllocationStrategy: capacity-optimized
+        LaunchTemplate:
+          LaunchTemplateSpecification:
+            LaunchTemplateId:
+              Ref: launchTemplate
+            Version: 1
+          Overrides:
+          - InstanceType: g4dn.xlarge
+          - InstanceType: g4dn.2xlarge
+          - InstanceType: g4dn.4xlarge
+      VPCZoneIdentifier:
+      - Ref: publicSubnet1
+      - Ref: publicSubnet2
+
+  ScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      PolicyType: StepScaling
+      AutoScalingGroupName: { Ref: autoScalingGroup }
+      EstimatedInstanceWarmup: { Ref: asgWarmup }
+      StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          MetricIntervalUpperBound: 5
+          ScalingAdjustment: 1
+        - MetricIntervalLowerBound: 5
+          MetricIntervalUpperBound: 15
+          ScalingAdjustment: 2
+        - MetricIntervalLowerBound: 15
+          MetricIntervalUpperBound: 30
+          ScalingAdjustment: 3
+        - MetricIntervalLowerBound: 30
+          ScalingAdjustment: 4
+
+  ScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: { Ref: asgScaleOutEvaluationPeriods }
+      Threshold: { Ref: asgScaleOutThreshold }
+      AlarmDescription: Alarm if SQS queue messages is above threshold
+      Period: { Ref: asgEvaluationPeriodDuration }
+      AlarmActions:
+        - { Ref: ScaleOutPolicy }
+      Dimensions:
+      - Name: QueueName
+        Value:
+          Fn::GetAtt:
+          - sqsQueue
+          - QueueName
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Unit: Count
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      
+  ScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: PercentChangeInCapacity
+      PolicyType: StepScaling
+      AutoScalingGroupName: { Ref: autoScalingGroup }
+      EstimatedInstanceWarmup: { Ref: asgWarmup }
+      StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          ScalingAdjustment: -100
+
+  ScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: autoScalingGroup
+    Properties:
+      EvaluationPeriods: { Ref: asgScaleInEvaluationPeriods }
+      Threshold: { Ref: asgScaleInThreshold }
+      AlarmDescription: Alarm if SQS queue depth is below threshold
+      Period: { Ref: asgEvaluationPeriodDuration }
+      AlarmActions:
+        - { Ref: ScaleInPolicy }
+      Dimensions:
+      - Name: QueueName
+        Value:
+          Fn::GetAtt:
+          - sqsQueue
+          - QueueName
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Unit: Count
+      ComparisonOperator: LessThanOrEqualToThreshold
+
+  autoScalingServiceLinkedRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: autoscaling.amazonaws.com
+      Description: Default Service-Linked Role enables access to AWS Services and Resources
+        used or managed by Auto Scaling
+  cloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 7    
+  ec2FleetServiceLinkedRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: ec2fleet.amazonaws.com
+      Description: Default EC2 Fleet Service Linked Role    
+  instanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn:
+    - instanceRole
+    Properties:
+      Path: /
+      Roles:
+      - Ref: instanceRole    
+  instanceRole:
+    Type: AWS::IAM::Role
+    DependsOn:
+    - sqsQueue
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action: sqs:*
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+              - sqsQueue
+              - Arn
+          Version: 2012-10-17
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - sqsQueuePolicy
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogStreams
+            Effect: Allow
+            Resource: arn:aws:logs:*:*:*
+          Version: 2012-10-17
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - cloudWatchLogsPolicy
+      - PolicyDocument:
+          Statement:
+          - Action: s3:ListBucket
+            Effect: Allow
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: s3Bucket
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - s3BucketListPolicy
+      - PolicyDocument:
+          Statement:
+          - Action: ec2:DescribeTags
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - ec2DescribeTagsPolicy
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - ecr:DescribeImageScanFindings
+            - ecr:GetLifecyclePolicyPreview
+            - ecr:GetDownloadUrlForLayer
+            - ecr:BatchGetImage
+            - ecr:DescribeImages
+            - ecr:GetAuthorizationToken
+            - ecr:DescribeRepositories
+            - ecr:ListTagsForResource
+            - ecr:ListImages
+            - ecr:BatchCheckLayerAvailability
+            - ecr:GetRepositoryPolicy
+            - ecr:GetLifecyclePolic
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - ecrReadAndList
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - s3:PutObject*
+            - s3:GetObject
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: s3Bucket
+                - /*
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - s3BucketReadWritePolicy
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - autoscaling:SetInstanceProtection
+            - autoscaling:SetInstanceHealth
+            Effect: Allow
+            Resource: arn:aws:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*
+          Version: '2012-10-17'
+        PolicyName:
+          Fn::Join:
+          - '-'
+          - - Ref: AWS::StackName
+            - autoScalingGroupPolicy
+  internetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn:
+    - vpc    
+  launchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn:
+    - instanceProfile
+    - sqsQueue
+    - cloudWatchLogsGroup
+    Properties:
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn:
+            Fn::GetAtt:
+            - instanceProfile
+            - Arn
+        ImageId:
+          Ref: amazonLinuxAmi
+        KeyName: 
+          Ref: Ec2KeyName
+        TagSpecifications:
+        - ResourceType: instance
+          Tags:
+          - Key: Name
+            Value:
+              Ref: AWS::StackName
+        UserData:
+          Fn::Base64:
+            !Sub
+              - |-
+                #!/bin/bash -xe
+                yum -y install git
+                cd /root && git clone https://github.com/arturlr/sqs-ec2-spot-asg.git
+                bash /root/sqs-ec2-spot-asg/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain}
+              - cloudfrontDomain: 
+                  Fn::GetAtt:
+                  - cloudFront
+                  - DomainName
+                sqsUrl: !Ref sqsQueue
+                logGroup: !Ref cloudWatchLogsGroup
+                  
+  publicRoute:
+    Type: AWS::EC2::Route
+    DependsOn:
+    - publicRouteTable
+    - internetGateway
+    - attachGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: internetGateway
+      RouteTableId:
+        Ref: publicRouteTable    
+  publicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn:
+    - vpc
+    - attachGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: Public Route Table
+      VpcId:
+        Ref: vpc    
+  publicSubnet1:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 0
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 256
+          - 8
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+  publicSubnet1RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - publicSubnet1
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: publicSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  publicSubnet2:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 1
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 256
+          - 8
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+  publicSubnet2RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - publicSubnet2
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: publicSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  sqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 900
+  sqsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    DependsOn:
+    - sqsQueue
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - sqs:SendMessage
+          Effect: Allow
+          Principal:
+            Service: s3.amazonaws.com
+          Resource: '*'
+        Version: 2012-10-17
+      Queues:
+      - Ref: sqsQueue
+          
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Fn::FindInMap:
+        - CidrMappings
+        - vpc
+        - CIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+
+
+Outputs:
+  autoScalingGroup:
+    Description: The autoScalingGroup
+    Value:
+      Ref: autoScalingGroup
+  awsRegionId:
+    Description: The AWS Region ID your template was launched in
+    Value:
+      Ref: AWS::Region
+  instanceProfile:
+    Description: Instance profile ARN
+    Value:
+      Fn::GetAtt:
+      - instanceProfile
+      - Arn
+  publicSubnet1:
+    Description: Public subnet 1
+    Value:
+      Ref: publicSubnet1
+  publicSubnet2:
+    Description: Public subnet 2
+    Value:
+      Ref: publicSubnet2
+  sqsQueueArn:
+    Description: The SQS queue ARN
+    Value:
+      Fn::GetAtt:
+      - sqsQueue
+      - Arn
+  vpc:
+    Description: The VPC
+    Value:
+      Ref: vpc
+  cloudFrontDomain:
+    Value:
+      Fn::GetAtt:
+      - cloudFront
+      - DomainName
