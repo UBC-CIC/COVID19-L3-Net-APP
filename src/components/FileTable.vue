@@ -103,7 +103,7 @@ export default {
     mlview(code) {
       var url = process.env.VUE_APP_CLOUDFRONT_URL + '/html/' + code + '/index.html';
       //var win = window.open(url, '_blank');
-      var win = window.open(url);
+      var win = window.open(url, '_self');
       win.focus();      
     },
     async mountFilesTable() {
