@@ -73,6 +73,21 @@
       <div class="col-1"></div>
       <div class="col-7">
         <q-card class="my-card">
+          <q-item class="ubc-color"> 
+            <q-item-section>
+              <q-item-label>
+                <q-icon name="account_box"  style="font-size: 32px;" /> {{ email }}
+                <q-btn align="right" color="orange" size="lg" flat round dense icon="exit_to_app" @click="signOut"> 
+                <q-tooltip
+                  content-class="bg-black"
+                  content-style="font-size: 16px"
+                  :offset="[10, 10]"
+                >Sign Out</q-tooltip>
+                </q-btn>
+              </q-item-label>
+             </q-item-section>
+          </q-item>
+          <q-separator />
           <q-card-section>
             <div class="text-h6">
               Files submitted
@@ -96,7 +111,8 @@
 </template>
 
 <script type="text/javascript">
-import { mapState } from "vuex";
+import { mapState, mapGetters } from "vuex";
+import { Auth } from 'aws-amplify';
 import { Storage } from "aws-amplify";
 import FileTable from "../components/FileTable";
 
@@ -120,6 +136,10 @@ export default {
     ...mapState({
       user: state => state.profile.user
     }),
+    ...mapGetters({
+      isAuthenticated: "profile/isAuthenticated",
+      email: "profile/email"
+    }),
     isUploading() {
       return this.uploading !== null;
     },
@@ -130,6 +150,14 @@ export default {
   },
 
   methods: {
+    async signOut() {
+      try {
+          await Auth.signOut();
+          this.$router.push("/auth");
+      } catch (error) {
+          console.log('error signing out: ', error);
+      }
+    },
     cancelFile(index) {
       this.uploadProgress[index] = {
         ...this.uploadProgress[index],

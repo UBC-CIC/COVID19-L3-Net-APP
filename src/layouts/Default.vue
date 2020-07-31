@@ -1,12 +1,12 @@
 <template>
   <q-layout>
-    <q-header elevated class="ubc-color">
+    <!-- <q-header elevated class="ubc-color">
       <q-toolbar>
         <q-toolbar-title :padding="1">UBC AWS - Cloud Innovation Center</q-toolbar-title>
         <q-btn flat round dense icon="portrait" :label="email" />
         <q-btn color="orange" flat round dense icon="exit_to_app" @click="signOut" />
       </q-toolbar>
-    </q-header>
+    </q-header> -->
     <q-page-container>
       <router-view />
     </q-page-container>
