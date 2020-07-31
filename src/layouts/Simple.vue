@@ -1,9 +1,9 @@
 <template>
   <q-layout>
     <q-page-container>
-      <q-banner class="ubc-color"><span class="text-h6">UBC AWS - Cloud Innovation Center</span>
+      <!-- <q-banner class="ubc-color"><span class="text-h6">UBC AWS - Cloud Innovation Center</span>
       </q-banner>
-      <q-banner v-if="!$q.platform.is.mobile" inline-actions class="bg-grey-3">This is a place to add some informatoin</q-banner>
+      <q-banner v-if="!$q.platform.is.mobile" inline-actions class="bg-grey-3">This is a place to add some informatoin</q-banner> -->
       <q-space />
       <router-view />
     </q-page-container>
