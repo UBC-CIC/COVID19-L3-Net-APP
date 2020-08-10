@@ -2,7 +2,7 @@
     <div class="column  justify-center items-center q-pa-lg">
       <q-card v-if="formState === 'forgotPassword'" square class="shadow-24">
         <q-card-section class="bg-teal">
-          <div class="text-h6">Resetar Senha</div>
+          <div class="text-h6">Reset Password</div>
         </q-card-section>
         <q-card-section>
           <q-form>
@@ -25,14 +25,14 @@
           <q-btn unelevated size="lg" @click="forgotPassword" class="bg-teal full-width text-white" label="ENVIAR" />
         </q-card-actions>
         <q-card-section class="text-center q-pa-sm">
-          <q-btn flat size="sm" @click="toggleLogin" color="black" label="Clique aqui para voltar." />
+          <q-btn flat size="sm" @click="toggleLogin" color="black" label="Back to Sign In page." />
         </q-card-section>
       </q-card>
 
     <q-card v-if="formState === 'forgotPasswordSubmit'" square class="shadow-24">
        <q-card-section class="bg-grey-8 text-white">
-        <div class="text-h6">Confirmação</div>
-        <div class="text-subtitle2">Um codigo de confirmação foi enviado para o email {{ form.email }}. Caso nao tenha recebido um email com o codigo, por favor verificar a sua pasta de SPAM. </div>
+        <div class="text-h6">Confirmation</div>
+        <div class="text-subtitle2">A confirmation code was sent to {{ form.email }}. Please, check your email.</div>
        </q-card-section>
         <q-card-section>
           <q-form>
@@ -62,7 +62,7 @@
           <q-btn size="sm" color="red" icon="highlight_off" :label="passwordError" @click="hasPasswordError=false" />
         </q-card-section>
         <q-card-actions class="q-px-lg">
-          <q-btn unelevated size="lg" @click="forgotPasswordSubmit" class="bg-teal full-width text-white" label="ENVIAR" />
+          <q-btn unelevated size="lg" @click="forgotPasswordSubmit" class="bg-teal full-width text-white" label="SUBMIT" />
         </q-card-actions>     
       </q-card>
     </div>
@@ -109,7 +109,7 @@ export default {
         this.$q.notify({
             color: "teal",
             icon: "thumb_up",
-            message: "Senha Alterada!! ",
+            message: "Your password has been reset successfully!",
             position: "right"
         });
         this.$router.push("/auth");
