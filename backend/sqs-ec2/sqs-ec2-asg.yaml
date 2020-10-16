@@ -23,8 +23,6 @@ Metadata:
       License for the specific language governing permissions and limitations under the License.'
 
 Parameters:
-  s3Bucket:
-    Type: String
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
@@ -80,42 +78,6 @@ Parameters:
 
 
 Resources:
-#  publicBucket:
-#  Type: AWS::S3::Bucket
-#  Properties:
-#    AccessControl: PublicRead
-#    WebsiteConfiguration:
-#      IndexDocument: index.html
-#      ErrorDocument: error.html
-#    LifecycleConfiguration:
-#      Rules:
-#        - Id: DeleteRecordsAfter2Days
-#          ExpirationInDays: 2
-#          Status: Enabled
-#          Prefix: "dcm"
-#        - Id: DeleteAthenaReportsAfter2Days
-#          ExpirationInDays: 2
-#          Status: Enabled
-#          Prefix: "png"
-#
-#  publicBucketPolicy:
-#    Type: AWS::S3::BucketPolicy
-#    Properties:
-#      PolicyDocument:
-#        Id: MyPolicy
-#        Version: 2012-10-17
-#        Statement:
-#          - Sid: PublicReadForGetBucketObjects
-#            Effect: Allow
-#            Principal: '*'
-#            Action: 's3:GetObject'
-#            Resource: !Join 
-#              - ''
-#              - - 'arn:aws:s3:::'
-#                - !Ref publicBucket
-#                - /*
-#      Bucket: !Ref publicBucket
-
   cloudFront:
     Type: AWS::CloudFront::Distribution
     Properties: 
