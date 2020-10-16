@@ -23,11 +23,12 @@ Metadata:
       License for the specific language governing permissions and limitations under the License.'
 
 Parameters:
+  s3Bucket:
+    Type: String
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
     Type: String 
-    Default: ami-09b68fc50a472cc10
     # Deep Learning AMI (Amazon Linux 2) 
   desiredCapacity:
     Default: 0
@@ -78,6 +79,13 @@ Parameters:
 
 
 Resources:
+
+  oai:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties: 
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "L3-net app"
+
   cloudFront:
     Type: AWS::CloudFront::Distribution
     Properties: 
@@ -90,7 +98,10 @@ Resources:
             OriginPath: /public
             Id: !Ref s3Bucket
             S3OriginConfig:
-              OriginAccessIdentity: origin-access-identity/cloudfront/E2NB57AT2RC1MG
+              OriginAccessIdentity: !Join
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - !Ref oai
         Enabled: true
         DefaultCacheBehavior:
             AllowedMethods:
@@ -556,20 +567,10 @@ Resources:
 
 
 Outputs:
-  autoScalingGroup:
-    Description: The autoScalingGroup
-    Value:
-      Ref: autoScalingGroup
   awsRegionId:
     Description: The AWS Region ID your template was launched in
     Value:
       Ref: AWS::Region
-  instanceProfile:
-    Description: Instance profile ARN
-    Value:
-      Fn::GetAtt:
-      - instanceProfile
-      - Arn
   publicSubnet1:
     Description: Public subnet 1
     Value:
@@ -578,12 +579,12 @@ Outputs:
     Description: Public subnet 2
     Value:
       Ref: publicSubnet2
-  sqsQueueArn:
+  sqsQueueName:
     Description: The SQS queue ARN
     Value:
       Fn::GetAtt:
       - sqsQueue
-      - Arn
+      - QueueName
   vpc:
     Description: The VPC
     Value:

@@ -5,7 +5,7 @@ This repo contains the front and back-end to allow medical professionals around 
 
 ## Stack
 
-* *Front-end* - Vue.js as the core framework, Quasar for UI, Amplify for Auth UI component and AWS integration.
+* *Front-end* - Vue.js as the core framework, Quasar for UI, Amplify for Auth UI component and AWS integration. Users access Amazon CloudFront to access the files, which are stored at Amazon S3.
 * *Data* - All data is saved in Amazon S3.
 * *Auth* - Cognito provides JSON Web Tokens (JWT) and along with AppSync fine-grained authorization on what data types users can access.
 * *Model Processing* - In the back-end, it was essential to create a cost-effective solution as it uses GPU machines to run the model. It is inspired by an [AWS blog post](https://aws.amazon.com/blogs/compute/running-cost-effective-queue-workers-with-amazon-sqs-and-amazon-ec2-spot-instances/), which describes how to dynamically run EC2 Spot instances in response to the SQS messages, pulling the model docker image from Amazon Elastic Container Repository.

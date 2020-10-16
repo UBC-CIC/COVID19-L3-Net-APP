@@ -11,19 +11,64 @@ For prototyping, you need the following:
 *  [Docker](https://docs.docker.com/install/) 
 
 
-# Step 1: Deploy the SQS and EC2 infrastructure
+# Step 1: Front-end Deployment
+In this step we will use the Amplify console to deploy and build the front-end application automatically. 
+
+[![One-click deployment](https://oneclick.amplifyapp.com/button.svg)](https://console.aws.amazon.com/amplify/home#/deploy?repo=https://github.com/UBC-CIC/COVID19-L3-Net-APP)
+
+1. **1-click deployment** button above. Make sure to start the deployment before continuing. 
+2. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home) 
+3. Select the **COVID19-L3-Net-APP** app
+4. Wait until **Provision, Build, Deploy and Verify** are all green. 
+5. Click on the **Backend environments** tab
+6. Click on **File storage** 
+7. Copy the bucket name Amplify created.  You will need this information for Deploying your backend application.
+<img src=“._images_filestorage.png”  width=“500”/>
+
+
+# Step 2: Deploy the SQS and EC2 infrastructure
 In this step, we will deploy all the base back-end infrastructure to process the images as they land on S3. 
+
+:warning: Important Note: The AmazonLinuxAMI ID for the region you are deploying the cloud formation can be found by executing the following command.  Please copy the AMI ID to be used on the next steps. 
+```bash
+aws ec2 describe-images \
+    --owners amazon \
+    --filters 'Name=name,Values=Deep Learning AMI (Amazon Linux 2) Version 30.1' 'Name=state,Values=available' \
+    --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
+    --output text
+```
 
 1. Clone the repo.
 2. Log into the  [CloudFormation Management Console](https://console.aws.amazon.com/cloudformation/home) .
 3. Select **Create stack** with the _With new resources_ option.
-4. Click _Upload a template file_, and then **Choose file** and select the <strong>backend/sqs-ec2/sqs-ec2-asg.yaml</strong>. Or download it from [here](../backend/sqs-ec2/sqs-ec2-asg.yaml)
+4. Click _Upload a template file_, and then **Choose file** and select the <strong>backend_sqs-ec2_sqs-ec2-asg.yaml</strong>
 5. Click _Next_.
-6. Give the **Stack name** a name (e.g. **l3backend**). Select a key-pair and leave all the other fields with the default values. If you don’t have any Amazon EC2 key-pair available  [Create-your-key-pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair) , and repeat this step.
-7. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
+6. Give the **Stack name** a name (e.g. **L3backend**). Select a key-pair and leave all the other fields with the default values. If you don’t have any Amazon EC2 key-pair available  [Create-your-key-pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair) , and repeat this step.
+7. On the S3Bucket field past the bucket name obtained on the step 1.
+8. On the AmazonLinixAMI past the AMI ID from the command listed at the beginning of Step 2.
+<img src=“._images_L3Backup.png”  width=“500”/>
+9. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
+10. Once the deploy successfully finishes. Go to the Output tab and copy the cloudFrontDomain and sqsQueueName.
+<img src=“._images_L3Backup-Output.png”  width=“500”/>
 
-📓 **Note**: While the stack is deploying, which takes approximately ~5 minutes to finish, we carry on to the next step.
 
-# Step 2: Deploy the Lambdas
+# Step 3: Deploy the Lambdas
+## 3.1: Creating the Pydicom Layer
+When a CT-Scan is submitted to be processed, a Lambda function is triggered to make sure that all files within the ZIP file are DICOM files. For this verification we leverage [Pydicom](https://pydicom.github.io/).  The first step to get this Lambda Function implemented is to create the Layer file. 
 
+📓 **Note**: If you haven’t cloned the repo yet, this step and the next require the files to be local in your computer.
 
+1. Go to the directory <strong>_backend_layers</strong> and execute:
+```bash
+createLayer.sh 
+```
+4. The command launches docker to retrieve Pydicom and create the layer file to be used on the lambda function. At the end, a file called pydicom.zip, with approximately 35GB, is going to created on the same directory.
+5. Go the directory <strong>_backend_</strong> and execute the command below using the bucket name obtained on Step1:
+```bash
+sam package --s3-bucket <bucket> --output-template-file out.yaml 
+```
+
+6. To deploy the lambda function use the command below. Make sure you provide a stack name and replace the **ParameterValue** for s3Bucket and sqsName
+```bash
+sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND --stack-name <stackName> --parameter-overrides ParameterKey=s3Bucket,ParameterValue=<bucket> ParameterKey=queueName,ParameterValue=<sqsName>
+```
