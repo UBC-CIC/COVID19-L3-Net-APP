@@ -76,6 +76,6 @@ sam package --s3-bucket <bucket> --output-template-file out.yaml
 sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND --stack-name <stackName> --parameter-overrides ParameterKey=s3Bucket,ParameterValue=<bucket> ParameterKey=queueName,ParameterValue=<sqsName>
 ```
 
-7. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home), select the COVID19-L3-Net-APP and go to **Environment variables**. Add a new variable called *CLOUDFRONT_URL* with the vaule of *cloudFrontDomain*
+7. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home), select the COVID19-L3-Net-APP and go to **Environment variables**. Add a new variable called *CLOUDFRONT_URL* with the vaule of *https://cloudFrontDomain*
 
-<img src="../images/cloufront.png"  width="500"/>
+<img src="../images/cloudfront.png"  width="500"/>
