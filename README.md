@@ -16,7 +16,7 @@ This repo contains the front and back-end to allow medical professionals around 
 <img src="./images/Architecture.png"  width="800"/>
 
 # Deployment
-To deploy this solution into your AWS Account please following our [Deployment Guide](../docs/deployment_guide.md)
+To deploy this solution into your AWS Account please following our [Deployment Guide](./docs/deployment_guide.md)
 
 # Authors
 The key contributors to this repository are Artur Rodrigues a Senior Solutions Architect from the AWS, Tim Esler and Brian Lee of Sapien ML.

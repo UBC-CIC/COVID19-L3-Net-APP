@@ -17,7 +17,7 @@ In this step, we will deploy all the base back-end infrastructure to process the
 1. Clone the repo.
 2. Log into the  [CloudFormation Management Console](https://console.aws.amazon.com/cloudformation/home) .
 3. Select **Create stack** with the _With new resources_ option.
-4. Click _Upload a template file_, and then **Choose file** and select the <strong>backend_sqs-ec2_sqs-ec2-asg.yaml</strong>
+4. Click _Upload a template file_, and then **Choose file** and select the <strong>backend/sqs-ec2/sqs-ec2-asg.yaml</strong>
 5. Click _Next_.
 6. Give the **Stack name** a name (e.g. **l3backend**). Select a key-pair and leave all the other fields with the default values. If you don’t have any Amazon EC2 key-pair available  [Create-your-key-pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair) , and repeat this step.
 7. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
