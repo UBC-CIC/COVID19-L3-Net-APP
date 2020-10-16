@@ -48,11 +48,11 @@ aws ec2 describe-images \
 7. On the S3Bucket field past the bucket name obtained on the step 1.
 8. On the AmazonLinixAMI past the AMI ID from the command listed at the beginning of Step 2.
 
-<img src="../images/L3Backup.png"  width="500"/>
+<img src="../images/L3Backend.png"  width="500"/>
 9. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
 10. Once the deploy successfully finishes. Go to the Output tab and copy the cloudFrontDomain and sqsQueueName.
 
-<img src="../images/L3Backup-Output.png"  width="500"/>
+<img src="../images/L3Backend-Output.png"  width="500"/>
 
 
 # Step 3: Deploy the Lambdas
