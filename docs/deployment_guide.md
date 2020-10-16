@@ -23,7 +23,7 @@ In this step we will use the Amplify console to deploy and build the front-end a
 5. Click on the **Backend environments** tab
 6. Click on **File storage** 
 7. Copy the bucket name Amplify created.  You will need this information for Deploying your backend application.
-<img src=“./images/filestorage.png”  width=“500”/>
+<img src="./images/filestorage.png”  width="500”/>
 
 
 # Step 2: Deploy the SQS and EC2 infrastructure
@@ -46,10 +46,10 @@ aws ec2 describe-images \
 6. Give the **Stack name** a name (e.g. **L3backend**). Select a key-pair and leave all the other fields with the default values. If you don’t have any Amazon EC2 key-pair available  [Create-your-key-pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair) , and repeat this step.
 7. On the S3Bucket field past the bucket name obtained on the step 1.
 8. On the AmazonLinixAMI past the AMI ID from the command listed at the beginning of Step 2.
-<img src=“./images/L3Backup.png”  width=“500”/>
+<img src="./images/L3Backup.png”  width="500”/>
 9. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
 10. Once the deploy successfully finishes. Go to the Output tab and copy the cloudFrontDomain and sqsQueueName.
-<img src=“./images/L3Backup-Output.png”  width=“500”/>
+<img src="./images/L3Backup-Output.png”  width="500”/>
 
 
 # Step 3: Deploy the Lambdas
