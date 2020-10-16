@@ -22,7 +22,7 @@ In this step we will use the Amplify console to deploy and build the front-end a
 4. Wait until **Provision, Build, Deploy and Verify** are all green. 
 5. Click on the **Backend environments** tab
 6. Click on **File storage** 
-7. Copy the bucket name Amplify created.  You will need this information for Deploying your backend application.
+7. Copy the bucket name Amplify created. You will need this information for Deploying your backend application.
 
 <img src="../images/filestorage.png"  width="500"/>
 
@@ -75,3 +75,7 @@ sam package --s3-bucket <bucket> --output-template-file out.yaml
 ```bash
 sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND --stack-name <stackName> --parameter-overrides ParameterKey=s3Bucket,ParameterValue=<bucket> ParameterKey=queueName,ParameterValue=<sqsName>
 ```
+
+7. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home), select the COVID19-L3-Net-APP and go to **Environment variables**. Add a new variable called *CLOUDFRONT_URL* with the vaule of *cloudFrontDomain*
+
+<img src="../images/cloufront.png"  width="500"/>
