@@ -13,7 +13,7 @@ This repo contains the front and back-end to allow medical professionals around 
 
 ## High level architecture
 
-<img src=“./images/Architecture.png”  width="500"/>
+<img src="./images/Architecture.png"  width="500"/>
 
 # Deployment
 To deploy this solution into your AWS Account please following our [Deployment Guide](../docs/deployment_guide.md)
