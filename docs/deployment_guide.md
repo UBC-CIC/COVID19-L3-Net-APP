@@ -23,7 +23,7 @@ In this step we will use the Amplify console to deploy and build the front-end a
 5. Click on the **Backend environments** tab
 6. Click on **File storage** 
 7. Copy the bucket name Amplify created.  You will need this information for Deploying your backend application.
-<img src=“._images_filestorage.png”  width=“500”/>
+<img src=“./images/filestorage.png”  width=“500”/>
 
 
 # Step 2: Deploy the SQS and EC2 infrastructure
@@ -46,10 +46,10 @@ aws ec2 describe-images \
 6. Give the **Stack name** a name (e.g. **L3backend**). Select a key-pair and leave all the other fields with the default values. If you don’t have any Amazon EC2 key-pair available  [Create-your-key-pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair) , and repeat this step.
 7. On the S3Bucket field past the bucket name obtained on the step 1.
 8. On the AmazonLinixAMI past the AMI ID from the command listed at the beginning of Step 2.
-<img src=“._images_L3Backup.png”  width=“500”/>
+<img src=“./images/L3Backup.png”  width=“500”/>
 9. Click Next twice. Don’t forget to check the checkbox for **I acknowledge that AWS CloudFormation might create IAM resources.** as the cloudformation creates a role for the EC2 instance that grants you access to all resources/services required during the workshop.
 10. Once the deploy successfully finishes. Go to the Output tab and copy the cloudFrontDomain and sqsQueueName.
-<img src=“._images_L3Backup-Output.png”  width=“500”/>
+<img src=“./images/L3Backup-Output.png”  width=“500”/>
 
 
 # Step 3: Deploy the Lambdas
@@ -58,12 +58,12 @@ When a CT-Scan is submitted to be processed, a Lambda function is triggered to m
 
 📓 **Note**: If you haven’t cloned the repo yet, this step and the next require the files to be local in your computer.
 
-1. Go to the directory <strong>_backend_layers</strong> and execute:
+1. Go to the directory <strong>/backend/layers</strong> and execute:
 ```bash
 createLayer.sh 
 ```
 4. The command launches docker to retrieve Pydicom and create the layer file to be used on the lambda function. At the end, a file called pydicom.zip, with approximately 35GB, is going to created on the same directory.
-5. Go the directory <strong>_backend_</strong> and execute the command below using the bucket name obtained on Step1:
+5. Go the directory <strong>/backend/</strong> and execute the command below using the bucket name obtained on Step1:
 ```bash
 sam package --s3-bucket <bucket> --output-template-file out.yaml 
 ```
