@@ -65,17 +65,25 @@ When a CT-Scan is submitted to be processed, a Lambda function is triggered to m
 ```bash
 createLayer.sh 
 ```
-4. The command launches docker to retrieve Pydicom and create the layer file to be used on the lambda function. At the end, a file called pydicom.zip, with approximately 35GB, is going to created on the same directory.
-5. Go the directory <strong>/backend/</strong> and execute the command below using the bucket name obtained on Step1:
+2. The command launches docker to retrieve Pydicom and create the layer file to be used on the lambda function. At the end, a file called pydicom.zip, with approximately 35GB, is going to created on the same directory.
+3. Go the directory <strong>/backend/</strong> and execute the command below using the bucket name obtained on Step1:
 ```bash
 sam package --s3-bucket <bucket> --output-template-file out.yaml 
 ```
 
-6. To deploy the lambda function use the command below. Make sure you provide a stack name and replace the **ParameterValue** for s3Bucket and sqsName
+4. To deploy the lambda function use the command below. Make sure you provide a stack name and replace the **ParameterValue** for s3Bucket and sqsName
 ```bash
 sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND --stack-name <stackName> --parameter-overrides ParameterKey=s3Bucket,ParameterValue=<bucket> ParameterKey=queueName,ParameterValue=<sqsName>
 ```
 
-7. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home), select the COVID19-L3-Net-APP and go to **Environment variables**. Add a new variable called *CLOUDFRONT_URL* with the vaule of *https://cloudFrontDomain*
+5. Go to the [Amplify Console](https://console.aws.amazon.com/amplify/home), select the COVID19-L3-Net-APP and go to **Environment variables**. Add a new variable called *CLOUDFRONT_URL* with the vaule of https://<cloudFrontDomain>
 
 <img src="../images/cloudfront.png"  width="500"/>
+
+6. For editing building, choose App Settings, then choose Build settings. Then, In the App build specification section, choose Edit. More information in how to do it at this [link](https://docs.aws.amazon.com/amplify/latest/userguide/environment-variables.html)
+
+7. Add the following lines:
+ <img src="../images/buildEdit.png"  width="500"/>
+
+ 8. Redeploy the Application. Go to **master** and click on **Redeply this version** so the variable can take effect.
+ <img src="../images/redeploy.png"  width="500"/>
