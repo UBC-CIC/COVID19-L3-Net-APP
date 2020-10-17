@@ -82,7 +82,13 @@ sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUT
 
 6. For editing building, choose App Settings, then choose Build settings. Then, In the App build specification section, choose Edit. More information in how to do it at this [link](https://docs.aws.amazon.com/amplify/latest/userguide/environment-variables.html)
 
-7. Add the following lines:
+7. Add the following lines 
+```
+build:
+  commands:
+    - echo "VUE_APP_CLOUDFRONT_URL=$CLOUDFRONT_URL" >> backend/.env
+    - echo "VUE_APP_MAX_UPLOAD_SIZE_BYTES=524288000" >> backend/.env
+```
  <img src="../images/buildEdit.png"  width="500"/>
 
  8. Redeploy the Application. Go to **master** and click on **Redeply this version** so the variable can take effect.
