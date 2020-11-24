@@ -5,7 +5,7 @@ Description: EC2 Auto Scaling group using EC2 Spot Instances, automatically scal
 Mappings:
   CidrMappings:
     vpc:
-      CIDR: 172.17.0.0/16  
+      CIDR: 172.18.0.0/16  
    
 Metadata:
   Author:
@@ -25,6 +25,9 @@ Metadata:
 Parameters:
   s3Bucket:
     Type: String
+  gitHubRepo:
+    Type: String
+    Default: https://github.com/UBC-CIC/COVID19-L3-Net-APP
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
@@ -80,7 +83,7 @@ Parameters:
 
 Resources:
 
-  oai:
+  originAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties: 
       CloudFrontOriginAccessIdentityConfig:
@@ -101,7 +104,7 @@ Resources:
               OriginAccessIdentity: !Join
                 - ''
                 - - origin-access-identity/cloudfront/
-                  - !Ref oai
+                  - !Ref originAccessIdentity
         Enabled: true
         DefaultCacheBehavior:
             AllowedMethods:
@@ -118,6 +121,26 @@ Resources:
               Cookies:
                 Forward: none
             ViewerProtocolPolicy: allow-all
+
+  bucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: originAccessIdentity
+    Properties:
+      Bucket: !Ref s3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: 
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: s3Bucket
+                - /*
+            Principal:
+              CanonicalUser: !GetAtt originAccessIdentity.S3CanonicalUserId
 
   attachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -421,14 +444,20 @@ Resources:
               - |-
                 #!/bin/bash -xe
                 yum -y install git
-                cd /root && git clone https://github.com/UBC-CIC/COVID19-L3-Net-APP.git
-                bash /root/sqs-ec2-spot-asg/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain}
+                # adding SSM agent
+                cd /tmp
+                sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+                sudo systemctl start amazon-ssm-agent || echo "Failed in starting SSM"
+                # Running SQS userdata
+                cd /root && git clone ${gitHub}.git
+                bash /root/COVID19-L3-Net-APP/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain}
               - cloudfrontDomain: 
                   Fn::GetAtt:
                   - cloudFront
                   - DomainName
                 sqsUrl: !Ref sqsQueue
                 logGroup: !Ref cloudWatchLogsGroup
+                gitHub: !Ref gitHubRepo
                   
   publicRoute:
     Type: AWS::EC2::Route

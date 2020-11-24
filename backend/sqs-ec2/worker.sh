@@ -62,7 +62,7 @@ process_file () {
     done
 
     # Copying to the public bucket
-    logger "$0:----> Moving DCM abd PNG files to S3"
+    logger "$0:----> Moving DCM and PNG files to S3"
     aws s3 cp --quiet --recursive /tmp/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/
     aws s3 cp --quiet --recursive /tmp/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$FILE_DATE/
 

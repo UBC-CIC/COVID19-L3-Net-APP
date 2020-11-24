@@ -30,11 +30,11 @@ In this step we will use the Amplify console to deploy and build the front-end a
 # Step 2: Deploy the SQS and EC2 infrastructure
 In this step, we will deploy all the base back-end infrastructure to process the images as they land on S3. 
 
-:warning: Important Note: The AmazonLinuxAMI ID for the region you are deploying the cloud formation can be found by executing the following command.  Please copy the AMI ID to be used on the next steps. 
+:warning: Important Note: The AmazonLinuxAMI ID for the region you are deploying the cloud formation can be found by executing the following command.  Please copy the AMI ID to be used on the next steps. **Make sure run this command on the region you are executing the solution.**
 ```bash
 aws ec2 describe-images \
     --owners amazon \
-    --filters 'Name=name,Values=Deep Learning AMI (Amazon Linux 2) Version 30.1' 'Name=state,Values=available' \
+    --filters 'Name=name,Values=Deep Learning Base AMI (Amazon Linux 2)*' 'Name=state,Values=available' \
     --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
     --output text
 ```
@@ -82,14 +82,35 @@ sam deploy --template-file out.yaml --capabilities CAPABILITY_IAM CAPABILITY_AUT
 
 6. For editing building, choose App Settings, then choose Build settings. Then, In the App build specification section, choose Edit. More information in how to do it at this [link](https://docs.aws.amazon.com/amplify/latest/userguide/environment-variables.html)
 
-7. Add the following lines 
+7. Replace the build file with the following lines 
 ```
-build:
-  commands:
-    - echo "VUE_APP_CLOUDFRONT_URL=$CLOUDFRONT_URL" >> backend/.env
-    - echo "VUE_APP_MAX_UPLOAD_SIZE_BYTES=524288000" >> backend/.env
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - '# Execute Amplify CLI with the helper script'
+        - amplifyPush --simple
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - pwd
+        - echo VUE_APP_CLOUDFRONT_URL=\"$CLOUDFRONT_URL\" > .env
+        - echo VUE_APP_MAX_UPLOAD_SIZE_BYTES=524288000 >> .env
+        - cat .env
+        - npm run build
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
 ```
- <img src="../images/buildEdit.png"  width="500"/>
 
  8. Redeploy the Application. Go to **master** and click on **Redeply this version** so the variable can take effect.
  <img src="../images/redeploy.png"  width="500"/>
