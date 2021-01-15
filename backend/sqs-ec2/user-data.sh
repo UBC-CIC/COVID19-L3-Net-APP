@@ -7,8 +7,9 @@ REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -
 SQSQUEUE=$1
 CLOUDWATCHLOGSGROUP=$2
 CLOUDFRONT=$3
+CONTAINER_IMAGE=$4
 
-logger "$0: -------------- Initializing user-data.sh Account: ${ACCOUNT} - Region: ${REGION} - Queue: ${SQSQUEUE} - Logs: ${CLOUDWATCHLOGSGROUP} - CDN: ${CLOUDFRONT}"
+logger "$0: -------------- Initializing user-data.sh Account: ${ACCOUNT} - Region: ${REGION} - Queue: ${SQSQUEUE} - Logs: ${CLOUDWATCHLOGSGROUP} - CDN: ${CLOUDFRONT} - Image: ${CONTAINER_IMAGE}"
 
 yum -y --security update
 
@@ -42,9 +43,9 @@ systemctl start awslogsd
 
 REGISTRY="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
-docker pull ${REGISTRY}/covid-19-api:dev
-docker tag ${REGISTRY}/covid-19-api:dev covid-19-api:dev
-docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:dev
+docker pull ${REGISTRY}/${CONTAINER_IMAGE}
+docker tag ${REGISTRY}/${CONTAINER_IMAGE} ${CONTAINER_IMAGE}
+docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always ${CONTAINER_IMAGE}
 
 #systemctl start spot-instance-interruption-notice-handler
 logger "$0: -------------- Starting worker"

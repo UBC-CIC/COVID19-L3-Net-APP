@@ -28,6 +28,9 @@ Parameters:
   gitHubRepo:
     Type: String
     Default: https://github.com/UBC-CIC/COVID19-L3-Net-APP
+  containerImage:
+    Type: String
+    Default: "covid-19-api:latest"
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
@@ -450,7 +453,7 @@ Resources:
                 sudo systemctl start amazon-ssm-agent || echo "Failed in starting SSM"
                 # Running SQS userdata
                 cd /root && git clone ${gitHub}.git
-                bash /root/COVID19-L3-Net-APP/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain}
+                bash /root/COVID19-L3-Net-APP/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${image}
               - cloudfrontDomain: 
                   Fn::GetAtt:
                   - cloudFront
@@ -458,6 +461,7 @@ Resources:
                 sqsUrl: !Ref sqsQueue
                 logGroup: !Ref cloudWatchLogsGroup
                 gitHub: !Ref gitHubRepo
+                image: !Ref containerImage
                   
   publicRoute:
     Type: AWS::EC2::Route
