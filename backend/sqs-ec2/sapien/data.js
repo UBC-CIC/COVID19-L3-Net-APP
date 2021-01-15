@@ -1,7 +1,7 @@
 let exampleFiles =
 {
   "tex3d": "url_tex3d",
-  "statJson": "url_statJson",
+  "statJson": %url_statJson%,
   "dicom": [
      %DICOM_FILES%
     ],

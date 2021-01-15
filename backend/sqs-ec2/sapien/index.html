@@ -36,9 +36,9 @@
 			<div class="r1-info" id="r1-info-topright"></div>
 			<div class="r1-info" id="r1-info-bottomright"></div>
 
-			<!-- <div id="loaderdiv" class="ui active dimmer">
+			 <div id="loaderdiv" class="ui active dimmer">
 				<div class="ui text loader">Loading</div>
-			</div> -->
+			</div> 
 
 		</div>
 		<div id="aistats-container">
@@ -51,9 +51,9 @@
 			<div class="ui segment vertical">
 
 				<div class="ui grid">
-					<div class="row">
+					<!--<div class="row">
 						<button class="ui button" id="btn3d"><i class="fas fa-cube"></i> View 3D Rendering</button>
-					</div>
+					</div>-->
 					<div class="row">
 						<div class="five wide column">
 							<label>Overlay</label>
@@ -71,6 +71,22 @@
 						</div>
 						<div class="eleven wide column">
 							<div style="display:inline-block;" class="ui range" id="range-opacity"></div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="five wide column">
+							<label>CCA Threshold<sup>1</sup></label>
+						</div>
+						<div class="eleven wide column">
+							<select class="ui dropdown" id="select_threshold">
+								<option value="">No CCA</option>
+								<option value="_cca_50">50%</option>
+								<option value="_cca_60">60%</option>
+								<option value="_cca_70">70%</option>
+								<option value="_cca_80">80%</option>
+								<option value="_cca_90">90%</option>
+								<option value="_cca_95">95%</option>
+							  </select>
 						</div>
 					</div>
 					<div class="row">
@@ -110,7 +126,7 @@
 						Lung Involvement (L): <span id="affectedLiters">L</span><br />
 						Percentage of Lung Involvement (%): <span id="affectedPerc">%</span><br />
 						Percentage of Well-Aerated-Lung (%): <span id="unaffectedPerc">%</span><br />
-						Classification: <span id="classification"></span>
+						<!--Classification: <span id="classification"></span>-->
 					</p>
 				</div>
 
@@ -124,11 +140,11 @@
 					<div class="legendEntry" style="background:#FF0800;"></div>
 					<label>(<span id="GGstat">%</span>) Pure Ground Glass</label>
 
-					<div class="legendEntry" style="background:#FF662B;"></div>
+					<div class="legendEntry" style="background:#00FF00;"></div>
 					<label>(<span id="GGOstat">%</span>) GGO w/ Smooth Interlobular Thickening, GGO w/ Crazy
 						Paving</label>
 
-					<div class="legendEntry" style="background:#8D02FF;"></div>
+					<div class="legendEntry" style="background:#0000FF;"></div>
 					<label>(<span id="ConsolidationStat">%</span>) Organizing Pneumonia, Atoll Sign,
 						Consolidation</label>
 
@@ -144,6 +160,8 @@
 							href="https://xtract.ai/">xtract.ai</a>, and <a href="https://www.elementai.com/">Element
 							AI</a>
 				</div>
+				<br/><br/>
+				<sup>1</sup> Connected Component Analysis (CCA) is a region extraction algorithm applied as a post-processing step which uses the model’s prediction to refine the output to the region that is determined most-likely to be within the lung. The probabilities for pulmonary classes are summed and thresholded prior to CCA to find a single continuous volume that is most-likely to be the lung region. 
 
 			</div>
 

@@ -14,6 +14,12 @@ import ShadersVertex from 'base/shaders/shaders.data.vertex';
 import ShadersFragment from 'base/shaders/shaders.data.fragment';
 import { geometriesSlice } from 'base/geometries/geometries.slice';
 */
+String.prototype.trimLeft = function(charlist) {
+  if (charlist === undefined)
+    charlist = "\s";
+
+  return this.replace(new RegExp("^[" + charlist + "]+"), "");
+};
 
 let CamerasOrthographic = AMI.OrthographicCamera;
 let ControlsOrthographic = AMI.TrackballOrthoControl;
@@ -27,7 +33,8 @@ let redContourHelper = null;
 let redTextureTarget = null;
 let redContourScene = null;
 
-
+const OverlayMasks = {
+}
 
 // 2d axial renderer
 const r1 = {
@@ -328,6 +335,17 @@ function initRenderer2D() {
 
   document.getElementById("toggle_overlay").addEventListener('change', (event) => {
     r1.showOverlay = event.target.checked;
+    render();
+  });
+
+  document.getElementById("select_threshold").addEventListener('change', (event) => {
+    let targetVal = document.getElementById("select_threshold").value;
+    console.log("switching to " + targetVal + ".png files");
+
+    r1.overlay_material = OverlayMasks[targetVal];
+    r1.overlay_plane.material.map = r1.overlay_material[r1.stackHelper.index];
+    r1.overlay_plane.material.needsUpdate = true;
+    updateStats();
     render();
   });
 
@@ -652,30 +670,28 @@ function updateSlice(fromRange) {
 }
 function updateStats(){
 	if(r1.statdata && r1.stackHelper ){
+    
+    let targetVal = document.getElementById("select_threshold").value;
+    targetVal = targetVal.trimLeft("_");
+    if( targetVal == "")
+      targetVal = "raw";
+
+		//var thickness = r1.stackHelper.stack._sliceThickness;
+		//var voxelVolume = r1.stackHelper.stack._spacing.x * r1.stackHelper.stack._spacing.y * r1.stackHelper.stack._spacing.z;
 		
-		var thickness = r1.stackHelper.stack._sliceThickness;
-		
-		var voxelVolume = r1.stackHelper.stack._spacing.x * r1.stackHelper.stack._spacing.y * r1.stackHelper.stack._spacing.z;
-		
-		var lungPixels = 0;
-		var group2Pixels= 0;
-		var group3Pixels= 0;
-		var group4Pixels= 0;
-		
-		$.each(r1.statdata.Value.stats, function(x) {
-			lungPixels += r1.statdata.Value.stats[x].lungs;
-			group2Pixels += r1.statdata.Value.stats[x].group2;
-			group3Pixels += r1.statdata.Value.stats[x].group3;
-			group4Pixels += r1.statdata.Value.stats[x].group4;
-		});
+    var lungPixels = r1.statdata[targetVal].lung;
+    var pwal = r1.statdata[targetVal].pwal;
+		var group2Pixels= r1.statdata[targetVal].group1;
+		var group3Pixels= r1.statdata[targetVal].group2;
+		var group4Pixels= r1.statdata[targetVal].group3;
 		
     //1000000 mm^3 = Liter
     var totalLungPixels = (lungPixels+group2Pixels+group3Pixels+group4Pixels);
-    var liters = totalLungPixels * voxelVolume / 1000000;
-    var affectedLiters = (group2Pixels+group3Pixels+group4Pixels) * voxelVolume / 1000000;
+    var liters = totalLungPixels;// * voxelVolume / 1000000;
+    var affectedLiters = (group2Pixels+group3Pixels+group4Pixels);// * voxelVolume / 1000000;
 
     var affected = 100.0 * (group2Pixels+group3Pixels+group4Pixels) / totalLungPixels;
-    var unaffected = 100.0 * lungPixels / totalLungPixels;
+    var unaffected = pwal * 100.0;
 		var group2affected = 100.0 * (group2Pixels) / totalLungPixels;
 		var group3affected = 100.0 * (group3Pixels) / totalLungPixels;
 		var group4affected = 100.0 * (group4Pixels) / totalLungPixels;
@@ -686,13 +702,22 @@ function updateStats(){
     $("#affectedLiters").text(affectedLiters.toFixed(2) + "L");
     $("#affectedPerc").text(affected.toFixed(2) + "%");
     $("#unaffectedPerc").text(unaffected.toFixed(2) + "%");
-    $("#classification").text(r1.statdata.Value.classification);
+    //$("#classification").text(r1.statdata.Value.classification);
 		$("#GGstat").text(group2affected.toFixed(2) + "%");
 		$("#GGOstat").text(group3affected.toFixed(2) + "%");
 		$("#ConsolidationStat").text(group4affected.toFixed(2) + "%");
 	}
 }
 
+function LoadMasks(files_mask, filter){
+  let masks = [];
+  if( filter == "")
+    masks = files_mask.filter(x=>!x.includes("_cca_")).sort().reverse().map((file)=>{ return new THREE.TextureLoader().load( file ); });
+  else
+    masks = files_mask.filter(x=>x.includes(filter)).sort().reverse().map((file)=>{ return new THREE.TextureLoader().load( file ); });
+  
+  OverlayMasks[filter] = masks;
+}
 function loadExmaple() {
   
   $("#btn3d").addClass("disabled");
@@ -742,6 +767,7 @@ function loadExmaple() {
   let files = exampleFiles.dicom;
   console.log(files);
   let files_mask = exampleFiles.mask;
+  OverlayMasks.files_mask = files_mask;
   let tex3d = exampleFiles.tex3d;
   let statJson = exampleFiles.statJson;
 
@@ -756,10 +782,10 @@ function loadExmaple() {
   THREE.DefaultLoadingManager.onLoad = function ( ) {
 	  
     
-    r2.materialSecondPass.uniforms.cubeTex.value =  r2.cubeTexture;
+    //r2.materialSecondPass.uniforms.cubeTex.value =  r2.cubeTexture;
 
     //3d_1
-    r2.camera.up.set( 0, 0, -1  );
+    //r2.camera.up.set( 0, 0, -1  );
 
     var tiles = Math.ceil(Math.sqrt(r1.stackHelper.orientationMaxIndex+1));
 
@@ -772,10 +798,10 @@ function loadExmaple() {
     var max = Math.max(Math.max(totalX,totalY),totalZ);
 
 
-    r2.materialSecondPass.uniforms.tiles.value =  tiles;
-    r2.materialSecondPass.uniforms.spacex.value = totalX / max;
-    r2.materialSecondPass.uniforms.spacey.value = totalY / max;
-    r2.materialSecondPass.uniforms.spacez.value = totalZ / max;
+    //r2.materialSecondPass.uniforms.tiles.value =  tiles;
+    //r2.materialSecondPass.uniforms.spacex.value = totalX / max;
+    //r2.materialSecondPass.uniforms.spacey.value = totalY / max;
+    //r2.materialSecondPass.uniforms.spacez.value = totalZ / max;
 
     console.log( 'Loading Complete!');
 
@@ -836,8 +862,15 @@ function loadExmaple() {
       //r2.stackHelper.index = 30;
       if(files_mask)
       {
-        r1.overlay_material = files_mask.map((file)=>{ return new THREE.TextureLoader().load( file ); });
-        r1.overlay_material.reverse();
+        LoadMasks(files_mask, "");
+        LoadMasks(files_mask, "_cca_50");
+        LoadMasks(files_mask, "_cca_60");
+        LoadMasks(files_mask, "_cca_70");
+        LoadMasks(files_mask, "_cca_80");
+        LoadMasks(files_mask, "_cca_90");
+        LoadMasks(files_mask, "_cca_95");
+
+        r1.overlay_material = OverlayMasks[""];
 
         var material = new THREE.SpriteMaterial( { map: r1.overlay_material[r1.stackHelper.index], color: 0xffffff } );
         material.opacity = 0.5;
