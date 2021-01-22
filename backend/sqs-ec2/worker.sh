@@ -103,12 +103,23 @@ process_file () {
 
 }
 
+GITBRANCH="%gitBranchVar%"
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-REGION=%REGION%
-CLOUDFRONT="https://%CLOUDFRONT%"
-SQSQUEUE=%SQSQUEUE%
-WORKING_DIR=%WORKING_DIR%
+REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -d . -f 2)"
+CLOUDFRONT=$(aws ssm get-parameter --name "covid19l3/${GITBRANCH}/cloudfrontdomain" --query Parameter.Value --output text)
+SQSQUEUE=$(aws ssm get-parameter --name "covid19l3/${GITBRANCH}/sqsurl" --query Parameter.Value --output text)
+WORKING_DIR=/root/covid-19-app-${GITBRANCH}/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
+
+
+if [[ "${GITBRANCH}" == "master" ]]; then
+   IMAGE_TAG="latest"
+else
+   IMAGE_TAG="${GITBRANCH}"
+fi
+
+logger "$0: -------------- Starting container model --------------"
+docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:${IMAGE_TAG}
 
 while :;do 
 
