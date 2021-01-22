@@ -1,0 +1,95 @@
+{
+    "agent": {
+      "metrics_collection_interval": 10,
+      "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+    },
+    "metrics": {
+      "namespace": "Covid19Backend",
+      "metrics_collected": {
+        "cpu": {
+          "resources": [
+            "*"
+          ],
+          "measurement": [
+            {"name": "cpu_usage_idle", "rename": "CPU_USAGE_IDLE", "unit": "Percent"},
+            {"name": "cpu_usage_nice", "unit": "Percent"},
+            "cpu_usage_guest"
+          ],
+          "totalcpu": false,
+          "metrics_collection_interval": 10
+        },
+        "disk": {
+          "resources": [
+            "/",
+            "/tmp"
+          ],
+          "measurement": [
+            {"name": "free", "rename": "DISK_FREE", "unit": "Gigabytes"},
+            "total",
+            "used"
+          ],
+           "ignore_file_system_types": [
+            "sysfs", "devtmpfs"
+          ],
+          "metrics_collection_interval": 60
+        },
+        "diskio": {
+          "resources": [
+            "*"
+          ],
+          "measurement": [
+            "reads",
+            "writes",
+            "read_time",
+            "write_time",
+            "io_time"
+          ],
+          "metrics_collection_interval": 60
+        },
+        "mem": {
+          "measurement": [
+            "mem_used",
+            "mem_cached",
+            "mem_total"
+          ],
+          "metrics_collection_interval": 1
+        },
+        "processes": {
+          "measurement": [
+            "running",
+            "sleeping",
+            "dead"
+          ]
+        }
+      },
+      "append_dimensions": {
+        "ImageId": "${aws:ImageId}",
+        "InstanceId": "${aws:InstanceId}",
+        "InstanceType": "${aws:InstanceType}",
+        "AutoScalingGroupName": "${aws:AutoScalingGroupName}"
+      },
+      "aggregation_dimensions" : [["ImageId"], ["InstanceId", "InstanceType"], ["d1"],[]],
+      "force_flush_interval" : 30
+    },
+    "logs": {
+      "logs_collected": {
+        "files": {
+          "collect_list": [
+            {
+              "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+              "log_group_name": "covid19-instances-backend-cwlog",
+              "log_stream_name": "${aws:InstanceId}-${aws:hostname}",
+              "timezone": "UTC"
+            },
+            {
+              "file_path": "/var/log/**.log",
+              "log_group_name": "covid19-instances-backend-logs",
+              "log_stream_name": "${aws:InstanceId}-${aws:hostname}",
+              "timezone": "Local"
+            }
+          ]
+        }
+      },
+      "force_flush_interval" : 15
+    }
+  }
