@@ -1,5 +1,7 @@
-AWSTemplateFormatVersion: 2010-09-09
-Description: EC2 Image Builder
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    "Dicom Lambda Validation \n"
 
 Parameters:
   gitHubRepo:
@@ -62,7 +64,17 @@ Parameters:
     Type: Number
     MinValue: 60
 
+Globals:
+  Function:
+    AutoPublishAlias: live
+    Handler: index.handler
+    MemorySize: 256
+    Runtime: python3.7
+    Timeout: 300
+    Tracing: Active
+
 Resources:
+  
   ImageBuilderLogBucket:
     Type: AWS::S3::Bucket
 
@@ -245,6 +257,7 @@ Resources:
 #    Background components
 #
 ###################################################################################################
+
   originAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties: 
@@ -633,10 +646,68 @@ Resources:
   sqsParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub /covid19l3/${gitHubBranch}/sqsname
+      Name: !Sub /covid19l3/${gitHubBranch}/sqs
       Type: String
-      Value: 
-        Fn::GetAtt: 
-          - sqsQueue
-          - QueueName
-      Description: !Sub SQS Queue Name for covid19l3 ${gitHubBranch}
+      Value: !Ref sqsQueue
+      Description: !Sub SQS Queue for covid19l3 ${gitHubBranch}
+
+###################################################################################################
+#
+#    Lambda
+#
+###################################################################################################
+
+  PyDicomLayer:
+      Type: AWS::Serverless::LayerVersion
+      Properties:
+        Description: PyDicom
+        ContentUri: ./layers/pydicom.zip
+        CompatibleRuntimes:
+          - python3.8
+          - python3.7
+        RetentionPolicy: Delete
+
+  Validation:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: ./lambdas/validation/
+      Layers:
+      - !Ref PyDicomLayer
+      Policies:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+        - SQSSendMessagePolicy:
+            QueueName: 
+              !Ref sqsQueue
+        - S3CrudPolicy:
+            BucketName:
+              !Ref s3Bucket
+      Environment:
+        Variables:
+          Bucket:
+            !Ref s3Bucket
+          queueUrl: 
+              !Join
+                - ''
+                - - 'https://sqs.'
+                  - !Sub '${AWS::Region}'
+                  - '.amazonaws.com/'
+                  - !Sub '${AWS::AccountId}'
+                  - '/'
+                  - !Ref sqsQueue
+
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt Validation.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: 
+         !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref s3Bucket
+
+Outputs:
+  ValidationArn:
+      Value: !GetAtt Validation.Arn

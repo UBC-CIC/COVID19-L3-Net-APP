@@ -38,7 +38,7 @@ Resources:
         - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
         - SQSSendMessagePolicy:
             QueueName: 
-              !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqs:1}}'
+              !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
         - S3CrudPolicy:
             BucketName:
               !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
@@ -54,7 +54,7 @@ Resources:
                   - '.amazonaws.com/'
                   - !Sub '${AWS::AccountId}'
                   - '/'
-                  - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqs:1}}'
+                  - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
 
   LambdaInvokePermission:
     Type: 'AWS::Lambda::Permission'

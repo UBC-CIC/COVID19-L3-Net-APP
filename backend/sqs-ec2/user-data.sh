@@ -20,6 +20,8 @@ yum -y update aws-cli
 # This fixes awslogsd.service error (ImportError: cannot import name _normalize_host)
 pip install --user sphinx
 
+aws configure set default.region $REGION
+
 sed -i "s|us-east-1|$REGION|g" /etc/awslogs/awscli.conf
 sed -i "s|%CLOUDWATCHLOGSGROUP%|$CLOUDWATCHLOGSGROUP|g" /etc/awslogs/awslogs.conf
 
