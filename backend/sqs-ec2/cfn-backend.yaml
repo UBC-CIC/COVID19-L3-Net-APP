@@ -611,7 +611,7 @@ Resources:
             !Sub
               - |-
                 #!/bin/bash -xe
-                cd /root && git clone ${gitHub}.git covid-19-app-${gitBranch} --branch ${gitBranch}                          
+                cd /root && git checkout ${gitBranch}                          
                 bash /root/covid-19-app-${gitBranch}/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${gitBranch}
               - cloudfrontDomain: 
                   Fn::GetAtt:
