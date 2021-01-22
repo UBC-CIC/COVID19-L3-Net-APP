@@ -1,41 +1,20 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: EC2 Auto Scaling group using EC2 Spot Instances, automatically scaling
-  based on SQS queue depth
-  
-Mappings:
-  CidrMappings:
-    vpc:
-      CIDR: 172.18.0.0/16  
-   
-Metadata:
-  Author:
-    Description: Ran Sheinberg <ranshein@amazon.com>, Chad Schmutzer <schmutze@amazon.com>
-  License:
-    Description: 'Copyright 2019 Amazon.com, Inc. and its affiliates. All Rights Reserved.
-
-      Licensed under the Amazon Software License (the "License"). You may not use this file
-      except in compliance with the License. A copy of the License is located at
-
-      http://aws.amazon.com/asl/
-
-      or in the "license" file accompanying this file. This file is distributed on an "AS IS"
-      BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-      License for the specific language governing permissions and limitations under the License.'
+Description: EC2 Image Builder
 
 Parameters:
-  s3Bucket:
-    Type: String
   gitHubRepo:
     Type: String
     Default: https://github.com/UBC-CIC/COVID19-L3-Net-APP
-  containerImage:
-    Type: String
-    Default: "covid-19-api:latest"
+  gitHubBranch:
+    Default: master
+    Type: String 
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
   amazonLinuxAmi:
     Type: String 
-    # Deep Learning AMI (Amazon Linux 2) 
+    Description: Deep Learning AMI (Amazon Linux 2)
+  s3Bucket:
+    Type: String
   desiredCapacity:
     Default: 0
     Description: Desired capacity
@@ -83,9 +62,189 @@ Parameters:
     Type: Number
     MinValue: 60
 
-
 Resources:
+  ImageBuilderLogBucket:
+    Type: AWS::S3::Bucket
 
+  ImageBuilderInstanceRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      Comment: Role to be used by instance during image build.
+    Properties:
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/EC2InstanceProfileForImageBuilder
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+        Version: "2012-10-17"
+      Path: /executionServiceEC2Role/
+
+  InstanceRoleLoggingPolicy:
+    Type: AWS::IAM::Policy
+    Metadata:
+      Comment: Allows the instance to save log files to an S3 bucket.
+    Properties:
+      PolicyName: ImageBuilderLogBucketPolicy
+      Roles:
+        - Ref: ImageBuilderInstanceRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - s3:PutObject
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                  - arn:${AWS::Partition}:s3:::${BUCKET}/*
+                  - BUCKET:
+                      Ref: ImageBuilderLogBucket
+  ImageBuilderInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /executionServiceEC2Role/
+      Roles:
+        - Ref: ImageBuilderInstanceRole
+
+  ContainerBuildComponent:
+    Type: 'AWS::ImageBuilder::Component'
+    Properties:
+      Name: Covid19-Model-Builder
+      Platform: 'Linux'
+      Version: "1.0.0"
+      Description:
+        !Join
+          - ''
+          - - 'Covid19-Component-'
+            - !Ref gitHubBranch
+      ChangeDescription: 'change-description'
+      # Require one of 'Data' or 'Uri' for Component template
+      Data: 
+        !Sub 
+          - |-
+            name: Covid19Model - InlineData
+            description: Covid19 Model Load
+            schemaVersion: 1.0
+
+            phases:
+              - name: initialization
+                steps:
+                  - name: AgentsDownload
+                    action: ExecuteBash
+                    inputs:
+                      commands:
+                        - yum -y install git awslogs jq imagemagick                                    
+                        - sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm                        
+
+              - name: build
+                steps:
+                  - name: getimagename
+                    action: ExecuteBash
+                    inputs:
+                      commands:
+                        - |
+                          if [[ "${gitBranch}" == "master" ]]; then
+                            echo "latest"
+                          else
+                            echo "${gitBranch}"
+                          fi
+
+                  - name: repoclone
+                    action: ExecuteBash
+                    inputs:
+                      commands:
+                        - cd /root && git clone ${gitHub}.git covid-19-app-${gitBranch} --branch ${gitBranch}
+                        - cd covid-19-app-${gitBranch}/backend/sqs-ec2
+                        - cp -av ./spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
+                        - cp -av ./worker.service /etc/systemd/system/worker.service
+                        - cp -av ./spot-instance-interruption-notice-handler.sh /usr/local/bin/
+                        - cp -av ./worker.sh /usr/local/bin
+                        - chmod +x /usr/local/bin/spot-instance-interruption-notice-handler.sh
+                        - chmod +x /usr/local/bin/worker.sh           
+
+                  - name: dockerpull
+                    action: ExecuteBash
+                    inputs:
+                      commands:          
+                        - 'CONTAINER_TAG={{ build.getimagename.outputs.stdout }}'
+                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:$CONTAINER_TAG
+                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:$CONTAINER_TAG covid-19-api:$CONTAINER_TAG
+          - gitHub: !Ref gitHubRepo
+            gitBranch: !Ref gitHubBranch
+
+  ImageRecipe:
+    Type: 'AWS::ImageBuilder::ImageRecipe'
+    Properties:
+      Name: Covid19-Model-Recipe
+      Description:
+        !Join
+          - ''
+          - - 'Covid19-Recipe-'
+            - !Ref gitHubBranch
+      Version: '1.0.0'
+      ParentImage: !Ref amazonLinuxAmi
+      Components:
+        - ComponentArn: !Ref ContainerBuildComponent
+
+  InfrastructureConfiguration:
+    Type: AWS::ImageBuilder::InfrastructureConfiguration
+    Properties:
+      Name: Covid19-Model-Infrastructure
+      Description:
+        !Join
+          - ''
+          - - 'Covid19-Infrastructure-'
+            - !Ref gitHubBranch
+      InstanceProfileName:
+        Ref: ImageBuilderInstanceProfile
+      # Set of one or more instance types to use when building the instance. Image Builder will select a type
+      # based on availability.
+      InstanceTypes:
+        - 'g4dn.xlarge'
+        - 'g4dn.2xlarge'
+      # Specify an S3 bucket and EC2 Image Builder will save logs to the bucket.
+      Logging:
+        S3Logs:
+          S3BucketName:
+            Ref: ImageBuilderLogBucket
+          S3KeyPrefix: !Join [ "-", [ 'imagebuilder', !Ref "AWS::StackName" ] ]
+      # If you would like to keep the instance running after a failed build, set TerminateInstanceOnFailure to false.
+      TerminateInstanceOnFailure: true
+      # If you do not have a default VPC or want to use a different VPC, you must specify the IDs of a subnet and one or more
+      # security groups to be associated with the build instance.
+      SubnetId: '{{resolve:ssm:/covid19l3/subnet1:1}}' 
+      SecurityGroupIds: 
+        - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+
+  covid19l3Image:
+    Type: AWS::ImageBuilder::Image
+    Properties:
+      ImageRecipeArn:
+        Ref: ImageRecipe
+      InfrastructureConfigurationArn:
+        Ref: InfrastructureConfiguration
+
+  # Create an SSM Parameter Store entry with our resulting ImageId.
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
+  ImageParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Image Id for Covid19l3
+      Name: !Sub /covid19l3/${gitHubBranch}/imageid
+      Type: String
+      Value:
+        Fn::GetAtt: [covid19l3Image, ImageId]
+
+###################################################################################################
+#
+#    Background components
+#
+###################################################################################################
   originAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties: 
@@ -144,24 +303,11 @@ Resources:
                 - /*
             Principal:
               CanonicalUser: !GetAtt originAccessIdentity.S3CanonicalUserId
-
-  attachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
-    DependsOn:
-    - vpc
-    - internetGateway
-    Properties:
-      InternetGatewayId:
-        Ref: internetGateway
-      VpcId:
-        Ref: vpc
     
   autoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     DependsOn:
     - launchTemplate
-    - publicSubnet1
-    - publicSubnet2
     - autoScalingServiceLinkedRole
     Properties:
       DesiredCapacity:
@@ -186,8 +332,8 @@ Resources:
           - InstanceType: g4dn.2xlarge
           - InstanceType: g4dn.4xlarge
       VPCZoneIdentifier:
-      - Ref: publicSubnet1
-      - Ref: publicSubnet2
+      - '{{resolve:ssm:/covid19l3/subnet1:1}}'
+      - '{{resolve:ssm:/covid19l3/subnet2:1}}'
 
   ScaleOutPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
@@ -414,16 +560,14 @@ Resources:
           - '-'
           - - Ref: AWS::StackName
             - autoScalingGroupPolicy
-  internetGateway:
-    Type: AWS::EC2::InternetGateway
-    DependsOn:
-    - vpc    
+  
   launchTemplate:
     Type: AWS::EC2::LaunchTemplate
     DependsOn:
     - instanceProfile
     - sqsQueue
     - cloudWatchLogsGroup
+    - covid19l3Image
     Properties:
       LaunchTemplateData:
         IamInstanceProfile:
@@ -432,7 +576,7 @@ Resources:
             - instanceProfile
             - Arn
         ImageId:
-          Ref: amazonLinuxAmi
+          Fn::GetAtt: [covid19l3Image, ImageId]
         KeyName: 
           Ref: Ec2KeyName
         TagSpecifications:
@@ -446,14 +590,8 @@ Resources:
             !Sub
               - |-
                 #!/bin/bash -xe
-                yum -y install git
-                # adding SSM agent
-                cd /tmp
-                sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
                 sudo systemctl start amazon-ssm-agent || echo "Failed in starting SSM"
-                # Running SQS userdata
-                cd /root && git clone ${gitHub}.git
-                bash /root/COVID19-L3-Net-APP/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${image}
+                bash /root/covid-19-app-${gitBranch}/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${gitBranch}
               - cloudfrontDomain: 
                   Fn::GetAtt:
                   - cloudFront
@@ -461,107 +599,8 @@ Resources:
                 sqsUrl: !Ref sqsQueue
                 logGroup: !Ref cloudWatchLogsGroup
                 gitHub: !Ref gitHubRepo
-                image: !Ref containerImage
+                gitBranch: !Ref gitHubBranch
                   
-  publicRoute:
-    Type: AWS::EC2::Route
-    DependsOn:
-    - publicRouteTable
-    - internetGateway
-    - attachGateway
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId:
-        Ref: internetGateway
-      RouteTableId:
-        Ref: publicRouteTable    
-  publicRouteTable:
-    Type: AWS::EC2::RouteTable
-    DependsOn:
-    - vpc
-    - attachGateway
-    Properties:
-      Tags:
-      - Key: Name
-        Value: Public Route Table
-      VpcId:
-        Ref: vpc    
-  publicSubnet1:
-    DependsOn:
-    - attachGateway
-    Properties:
-      AvailabilityZone:
-        Fn::Select:
-        - 0
-        - Fn::GetAZs:
-            Ref: AWS::Region
-      CidrBlock:
-        Fn::Select:
-        - 0
-        - Fn::Cidr:
-          - Fn::FindInMap:
-            - CidrMappings
-            - vpc
-            - CIDR
-          - 256
-          - 8
-      MapPublicIpOnLaunch: true
-      Tags:
-      - Key: Name
-        Value:
-          Ref: AWS::StackName
-      VpcId:
-        Ref: vpc
-    Type: AWS::EC2::Subnet
-  publicSubnet1RouteTableAssociation:
-    DependsOn:
-    - publicRouteTable
-    - publicSubnet1
-    - attachGateway
-    Properties:
-      RouteTableId:
-        Ref: publicRouteTable
-      SubnetId:
-        Ref: publicSubnet1
-    Type: AWS::EC2::SubnetRouteTableAssociation
-  publicSubnet2:
-    DependsOn:
-    - attachGateway
-    Properties:
-      AvailabilityZone:
-        Fn::Select:
-        - 1
-        - Fn::GetAZs:
-            Ref: AWS::Region
-      CidrBlock:
-        Fn::Select:
-        - 1
-        - Fn::Cidr:
-          - Fn::FindInMap:
-            - CidrMappings
-            - vpc
-            - CIDR
-          - 256
-          - 8
-      MapPublicIpOnLaunch: true
-      Tags:
-      - Key: Name
-        Value:
-          Ref: AWS::StackName
-      VpcId:
-        Ref: vpc
-    Type: AWS::EC2::Subnet
-  publicSubnet2RouteTableAssociation:
-    DependsOn:
-    - publicRouteTable
-    - publicSubnet2
-    - attachGateway
-    Properties:
-      RouteTableId:
-        Ref: publicRouteTable
-      SubnetId:
-        Ref: publicSubnet2
-    Type: AWS::EC2::SubnetRouteTableAssociation
   sqsQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -582,48 +621,3 @@ Resources:
         Version: 2012-10-17
       Queues:
       - Ref: sqsQueue
-          
-  vpc:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock:
-        Fn::FindInMap:
-        - CidrMappings
-        - vpc
-        - CIDR
-      EnableDnsHostnames: true
-      EnableDnsSupport: true
-      Tags:
-      - Key: Name
-        Value:
-          Ref: AWS::StackName
-
-
-Outputs:
-  awsRegionId:
-    Description: The AWS Region ID your template was launched in
-    Value:
-      Ref: AWS::Region
-  publicSubnet1:
-    Description: Public subnet 1
-    Value:
-      Ref: publicSubnet1
-  publicSubnet2:
-    Description: Public subnet 2
-    Value:
-      Ref: publicSubnet2
-  sqsQueueName:
-    Description: The SQS queue ARN
-    Value:
-      Fn::GetAtt:
-      - sqsQueue
-      - QueueName
-  vpc:
-    Description: The VPC
-    Value:
-      Ref: vpc
-  cloudFrontDomain:
-    Value:
-      Fn::GetAtt:
-      - cloudFront
-      - DomainName

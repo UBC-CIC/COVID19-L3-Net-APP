@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 Auto Scaling group using EC2 Spot Instances, automatically scaling
+  based on SQS queue depth
+  
+Mappings:
+  CidrMappings:
+    vpc:
+      CIDR: 172.18.0.0/16  
+   
+Resources:
+  attachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+    - vpc
+    - internetGateway
+    Properties:
+      InternetGatewayId:
+        Ref: internetGateway
+      VpcId:
+        Ref: vpc
+    
+  internetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn:
+    - vpc    
+                  
+  publicRoute:
+    Type: AWS::EC2::Route
+    DependsOn:
+    - publicRouteTable
+    - internetGateway
+    - attachGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: internetGateway
+      RouteTableId:
+        Ref: publicRouteTable    
+
+  publicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn:
+    - vpc
+    - attachGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: Public Route Table
+      VpcId:
+        Ref: vpc    
+
+  publicSubnet1:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 0
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 256
+          - 8
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+
+  publicSubnet1RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - publicSubnet1
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: publicSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+  publicSubnet2:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 1
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 256
+          - 8
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+
+  publicSubnet2RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - publicSubnet2
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: publicSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Fn::FindInMap:
+        - CidrMappings
+        - vpc
+        - CIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+
+  SecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: security-group
+        GroupDescription: Default Security Group for covid-19 app
+        VpcId: !Ref vpc
+  
+  #adding this to avoid circular dependency
+  SelfReferenceRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: "-1" #-1 used for all traffic
+      SourceSecurityGroupId: !Ref SecurityGroup
+      GroupId: !Ref SecurityGroup
+
+  VpcParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/vpc
+      Type: String
+      Value: !Ref vpc
+      Description: VPC
+
+  SecurityGroupParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/securitygroup
+      Type: String
+      Value: !Ref SecurityGroup
+      Description: SecurityGroup
+
+  Subnet1Parameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/subnet1
+      Type: String
+      Value: !Ref publicSubnet1
+      Description: Public Subnet1
+
+  Subnet2Parameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/subnet2
+      Type: String
+      Value: !Ref publicSubnet2
+      Description: Public Subnet2
+
+Outputs:
+  awsRegionId:
+    Description: The AWS Region ID your template was launched in
+    Value:
+      Ref: AWS::Region
+  publicSubnet1:
+    Description: Public subnet 1
+    Value:
+      Ref: publicSubnet1
+  publicSubnet2:
+    Description: Public subnet 2
+    Value:
+      Ref: publicSubnet2
+  vpc:
+    Description: The VPC
+    Value:
+      Ref: vpc
+

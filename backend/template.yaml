@@ -4,10 +4,9 @@ Description: >
     "Dicom Lambda Validation \n"
 
 Parameters:
-  s3Bucket:
+  gitHubBranch:
     Type: String
-  queueName:
-    Type: String
+    Default: master
 
 Globals:
   Function:
@@ -17,7 +16,6 @@ Globals:
     Runtime: python3.7
     Timeout: 300
     Tracing: Active
-    
 
 Resources:
   PyDicomLayer:
@@ -39,12 +37,15 @@ Resources:
       Policies:
         - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
         - SQSSendMessagePolicy:
-            QueueName: !Ref queueName
+            QueueName: 
+              !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqs:1}}'
         - S3CrudPolicy:
-            BucketName: !Ref s3Bucket
+            BucketName:
+              !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
       Environment:
         Variables:
-          Bucket: !Ref s3Bucket
+          Bucket:
+            !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
           queueUrl: 
               !Join
                 - ''
@@ -53,7 +54,20 @@ Resources:
                   - '.amazonaws.com/'
                   - !Sub '${AWS::AccountId}'
                   - '/'
-                  - !Ref queueName
+                  - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqs:1}}'
+
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt Validation.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: 
+         !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
 
 Outputs:
   ValidationArn:
