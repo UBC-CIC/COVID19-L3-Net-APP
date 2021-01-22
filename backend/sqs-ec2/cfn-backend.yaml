@@ -229,6 +229,19 @@ Resources:
       InfrastructureConfigurationArn:
         Ref: InfrastructureConfiguration
 
+  covid19l3ImagePipeline:
+    Type: 'AWS::ImageBuilder::ImagePipeline'
+    Properties:
+      Name: !Sub Covid19-ImagePipeline-${AWS::StackName}
+      Description:
+        !Join
+          - ''
+          - - 'Covid19-ImagePipeline-'
+            - !Ref gitHubBranch
+      ImageRecipeArn: !Ref ImageRecipe
+      InfrastructureConfigurationArn: !Ref InfrastructureConfiguration
+      Status: 'DISABLED'
+
   # Create an SSM Parameter Store entry with our resulting ImageId.
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
   ImageParameter:
@@ -598,6 +611,7 @@ Resources:
             !Sub
               - |-
                 #!/bin/bash -xe
+                cd /root && git clone ${gitHub}.git covid-19-app-${gitBranch} --branch ${gitBranch}                          
                 bash /root/covid-19-app-${gitBranch}/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${gitBranch}
               - cloudfrontDomain: 
                   Fn::GetAtt:

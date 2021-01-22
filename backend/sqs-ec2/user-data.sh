@@ -22,6 +22,13 @@ pip install --user sphinx
 
 aws configure set default.region $REGION
 
+cp -av $WORKING_DIR/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
+cp -av $WORKING_DIR/worker.service /etc/systemd/system/worker.service
+cp -av $WORKING_DIR/spot-instance-interruption-notice-handler.sh /usr/local/bin/
+cp -av $WORKING_DIR/worker.sh /usr/local/bin
+chmod +x /usr/local/bin/spot-instance-interruption-notice-handler.sh
+chmod +x /usr/local/bin/worker.sh 
+
 sed -i "s|us-east-1|$REGION|g" /etc/awslogs/awscli.conf
 sed -i "s|%CLOUDWATCHLOGSGROUP%|$CLOUDWATCHLOGSGROUP|g" /etc/awslogs/awslogs.conf
 
