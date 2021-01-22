@@ -590,7 +590,6 @@ Resources:
             !Sub
               - |-
                 #!/bin/bash -xe
-                sudo systemctl start amazon-ssm-agent || echo "Failed in starting SSM"
                 bash /root/covid-19-app-${gitBranch}/backend/sqs-ec2/user-data.sh ${sqsUrl} ${logGroup} ${cloudfrontDomain} ${gitBranch}
               - cloudfrontDomain: 
                   Fn::GetAtt:
@@ -605,6 +604,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       VisibilityTimeout: 900
+
   sqsQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     DependsOn:
@@ -621,3 +621,11 @@ Resources:
         Version: 2012-10-17
       Queues:
       - Ref: sqsQueue
+
+  sqsParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /covid19l3/${gitHubBranch}/sqs
+      Type: String
+      Value: !Ref sqsQueue
+      Description: !Sub SQS Queue for covid19l3 ${gitHubBranch}
