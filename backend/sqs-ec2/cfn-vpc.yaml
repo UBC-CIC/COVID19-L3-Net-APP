@@ -162,7 +162,7 @@ Resources:
   VpcParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: covid19l3/vpc
+      Name: /covid19l3/vpc
       Type: String
       Value: !Ref vpc
       Description: VPC
@@ -170,7 +170,7 @@ Resources:
   SecurityGroupParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: covid19l3/securitygroup
+      Name: /covid19l3/securitygroup
       Type: String
       Value: !Ref SecurityGroup
       Description: SecurityGroup
@@ -178,7 +178,7 @@ Resources:
   Subnet1Parameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: covid19l3/subnet1
+      Name: /covid19l3/subnet1
       Type: String
       Value: !Ref publicSubnet1
       Description: Public Subnet1
@@ -186,7 +186,7 @@ Resources:
   Subnet2Parameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: covid19l3/subnet2
+      Name: /covid19l3/subnet2
       Type: String
       Value: !Ref publicSubnet2
       Description: Public Subnet2
