@@ -59,7 +59,8 @@ Resources:
   LambdaInvokePermission:
     Type: 'AWS::Lambda::Permission'
     Properties:
-      FunctionName: !GetAtt Validation.Arn
+      FunctionName: 
+        !GetAtt Validation.Arn
       Action: 'lambda:InvokeFunction'
       Principal: s3.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
@@ -68,6 +69,16 @@ Resources:
             - ''
             - - 'arn:aws:s3:::'
               - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
+
+  lambdaParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: 
+        !Sub /covid19l3/${gitHubBranch}/lambdaArn
+      Type: String
+      Value: 
+        !GetAtt Validation.Arn
+      Description: !Sub LambdaArn for covid19l3 ${gitHubBranch}
 
 Outputs:
   ValidationArn:

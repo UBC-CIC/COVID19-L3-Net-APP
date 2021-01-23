@@ -2,7 +2,7 @@
     "LambdaFunctionConfigurations": [
         {
             "Id": "LambdaValidation",
-            "LambdaFunctionArn": "%LambdaArn%",
+            "LambdaFunctionArn": "arn:aws:lambda:ca-central-1:900537753864:function:covid19-l3-lambda-v2-Validation-1BFJFD5WWPWYP",
             "Events": [
                 "s3:ObjectCreated:*"
             ],

@@ -68,6 +68,18 @@ Resources:
         - ''
         - - 'arn:aws:s3:::'
           - Fn::Sub: '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
+  lambdaParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /covid19l3/${gitHubBranch}/lambdaArn
+      Type: String
+      Value:
+        Fn::GetAtt:
+        - Validation
+        - Arn
+      Description:
+        Fn::Sub: LambdaArn for covid19l3 ${gitHubBranch}
 Outputs:
   ValidationArn:
     Value:
