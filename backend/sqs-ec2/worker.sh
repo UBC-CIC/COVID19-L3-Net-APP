@@ -39,6 +39,7 @@ process_file () {
 
     logger "$0: Start model processing"
     # Submitting file to the model
+    echo 
     curl -X POST -F "input_file=@/mnt/$FNAME" http://localhost/predict/?format=png -o /mnt/$FNAME_NO_SUFFIX-png.zip
     logger "$0: END model processing"
 
@@ -118,8 +119,9 @@ else
    IMAGE_TAG="${GITBRANCH}"
 fi
 
-logger "$0: -------------- Starting container model --------------"
+logger "$0: -------------- Starting container model covid-19-api:${IMAGE_TAG} --------------"
 docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:${IMAGE_TAG}
+logger "$0: -------------- Done --------------"
 
 while :;do 
 

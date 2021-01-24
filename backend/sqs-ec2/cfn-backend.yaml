@@ -623,7 +623,7 @@ Resources:
                 sudo mkfs -t ext4 $EPHDEV
                 sudo mount $EPHDEV /mnt
                 sudo chown ec2-user:wheel /mnt
-                echo -------------- Formating $EPHDEV Instance Store --------------
+                echo -------------- Done --------------
                 aws configure set default.region ${awsRegion}
                 systemctl status amazon-ssm-agent
                 echo -------------- Git checkout and pull  --------------
