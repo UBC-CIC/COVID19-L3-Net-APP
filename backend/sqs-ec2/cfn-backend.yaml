@@ -647,8 +647,20 @@ Resources:
                   IMAGE_TAG="${gitBranch}"
                 fi
                 echo "-------------- Starting container model covid-19-api:$IMAGE_TAG --------------"
-                docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG
+                CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG)
                 echo "-------------- Done --------------"
+                ATTEMPT=0
+                while [ $ATTEMPT -le 5 ]; do
+                    ATTEMPT=$(( $ATTEMPT + 1 ))
+                    echo "Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
+                    docker logs $CONTAINERID 2>&1 | grep ERROR
+                    RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+                    if [[ $RESULT -eq 1 ]]; then
+                      echo "Model is up!"
+                      break
+                    fi
+                    sleep 5
+                done
                 echo "-------------- Starting worker --------------"
                 systemctl start worker
               - gitBranch: !Ref gitHubBranch
