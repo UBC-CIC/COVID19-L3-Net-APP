@@ -15,7 +15,7 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", , \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
+    echo "{ \"code\": $CODE, \"msg\": \"$MSG\",\"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
     aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
 }
