@@ -138,13 +138,14 @@ Resources:
                     action: ExecuteBash
                     inputs:
                       commands:
-                        - yum -y install git amazon-cloudwatch-agent jq                                    
-                        - yum -y install https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+                        - aws configure set default.region ${awsRegion}
+                        - sudo yum -y install git amazon-cloudwatch-agent jq                                    
+                        - sudo yum -y install https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
                         - alias cp="cp -f"
-                        - cd /root && git clone ${gitHub}.git covid-19-app-${gitBranch} --branch ${gitBranch} && git pull
-                        - cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/.
+                        - sudo cd /root && git clone ${gitHub}.git covid-19-app-${gitBranch} --branch ${gitBranch}
+                        - sudo cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
                         - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
-                        - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s         
+                        - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
                   - name: getimagename
                     action: ExecuteBash
@@ -166,6 +167,7 @@ Resources:
                         - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:$CONTAINER_TAG covid-19-api:$CONTAINER_TAG
           - gitHub: !Ref gitHubRepo
             gitBranch: !Ref gitHubBranch
+            awsRegion: !Sub '{AWS:Region}'
 
   ImageRecipe:
     Type: 'AWS::ImageBuilder::ImageRecipe'
@@ -614,10 +616,17 @@ Resources:
               - |-
                 #!/bin/bash -xe
                 yum -y --security update
-                yum -y update aws-cli
-                systemctl status amazon-ssm-agent
-                cd /root/covid-19-app-${gitBranch} && git checkout ${gitBranch}    
+                yum -y update aws-cli                
+                EPHDEV=$(sudo lsblk --list | grep disk | awk '{print $1}' | while read -r line; do sudo file -s /dev/$line | awk '{if ($2 == "data") {print substr($1,1,length($1)-1)}}' ; done)
+                echo -------------- Formating $EPHDEV Instance Store --------------
+                sudo mkfs -t ext4 $EPHDEV
+                sudo mount $EPHDEV /mnt
+                sudo chown ec2-user:wheel /mnt
+                echo -------------- Formating $EPHDEV Instance Store --------------
                 aws configure set default.region ${awsRegion}
+                systemctl status amazon-ssm-agent
+                echo -------------- Git checkout and pull  --------------
+                cd /root/covid-19-app-${gitBranch} && git checkout ${gitBranch} && git pull                 
                 alias cp="cp -f"
                 cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
                 cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/worker.service /etc/systemd/system/worker.service

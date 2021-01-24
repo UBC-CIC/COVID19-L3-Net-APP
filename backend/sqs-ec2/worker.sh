@@ -15,8 +15,8 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\" }" > /tmp/${FNAME}.status    
-    aws s3 cp --quiet /tmp/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
+    echo "{ \"code\": $CODE, \"msg\": \"$MSG\" }" > /mnt/${FNAME}.status    
+    aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
 }
 
@@ -31,7 +31,7 @@ process_file () {
     update_status "1" Processing
 
     # Copying the ZIP CT-Scan file
-    aws s3 cp s3://$S3BUCKET/$S3KEY /tmp/$FNAME
+    aws s3 cp s3://$S3BUCKET/$S3KEY /mnt/$FNAME
     #
     # 2020-07-23 14:01:19
     # 202007231401
@@ -39,54 +39,54 @@ process_file () {
 
     logger "$0: Start model processing"
     # Submitting file to the model
-    curl -X POST -F "input_file=@/tmp/$FNAME" http://localhost/predict/?format=png -o /tmp/$FNAME_NO_SUFFIX-png.zip
+    curl -X POST -F "input_file=@/mnt/$FNAME" http://localhost/predict/?format=png -o /mnt/$FNAME_NO_SUFFIX-png.zip
     logger "$0: END model processing"
 
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
-    mkdir -p /tmp/png/$FNAME_NO_SUFFIX    
-    unzip -j -q /tmp/$FNAME_NO_SUFFIX-png.zip -d /tmp/png/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/png/$FNAME_NO_SUFFIX    
+    unzip -j -q /mnt/$FNAME_NO_SUFFIX-png.zip -d /mnt/png/$FNAME_NO_SUFFIX
     # Unzipping the dcm files
     logger "$0:----> Unzipping DCM files"
-    mkdir -p /tmp/dcm/$FNAME_NO_SUFFIX
-    unzip -j -q /tmp/$FNAME -d /tmp/dcm/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/dcm/$FNAME_NO_SUFFIX
+    unzip -j -q /mnt/$FNAME -d /mnt/dcm/$FNAME_NO_SUFFIX
 
     # Preping the data for the JSON File
     DCMS=""
     PNGS=""
     STATS=""
-    for file in /tmp/dcm/$FNAME_NO_SUFFIX/*.dcm; do
+    for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
       DCMS+="\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
     done
-    for file in /tmp/png/$FNAME_NO_SUFFIX/*.png; do
+    for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
       PNGS+="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
     done
-    for file in /tmp/png/$FNAME_NO_SUFFIX/*.json; do
+    for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
       #Should only be 1 JSON file, so just take the last one.
       STATS="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
     done
 
     # Copying to the public bucket
     logger "$0:----> Moving DCM and PNG files to S3"
-    aws s3 cp --quiet --recursive /tmp/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/
-    aws s3 cp --quiet --recursive /tmp/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$FILE_DATE/
   
     # html and data.js file
     logger "$0:----> Preping index.html and data.js"
-    mkdir -p /tmp/html/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/html/$FNAME_NO_SUFFIX
 
     DATAJS=${CLOUDFRONT}/html/$FNAME_NO_SUFFIX-$FILE_DATE/data.js
 
-    cp $WORKING_DIR/sapien/index.html /tmp/html/$FNAME_NO_SUFFIX
-    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /tmp/html/$FNAME_NO_SUFFIX/index.html
-    sed -i "s|DATAJS|${DATAJS}|g" /tmp/html/$FNAME_NO_SUFFIX/index.html
+    cp $WORKING_DIR/sapien/index.html /mnt/html/$FNAME_NO_SUFFIX
+    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
+    sed -i "s|DATAJS|${DATAJS}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
 
-    cp $WORKING_DIR/sapien/data.js /tmp/html/$FNAME_NO_SUFFIX
-    sed -i "s|%DICOM_FILES%|${DCMS%???}|g" /tmp/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%PNG_FILES%|${PNGS%???}|g" /tmp/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%url_statJson%|${STATS%???}|g" /tmp/html/$FNAME_NO_SUFFIX/data.js
+    cp $WORKING_DIR/sapien/data.js /mnt/html/$FNAME_NO_SUFFIX
+    sed -i "s|%DICOM_FILES%|${DCMS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
+    sed -i "s|%PNG_FILES%|${PNGS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
+    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
 
-    aws s3 cp --quiet --recursive /tmp/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$FILE_DATE/
 
     # Updating status
     update_status "2" Ready    
@@ -170,10 +170,10 @@ while :;do
       aws s3 cp --quiet --recursive $WORKING_DIR/sapien/ s3://$S3BUCKET/public/sapien/
     fi
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /tmp/${FNAME}.status
+    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/${FNAME}.status
 
-    if [ -f "/tmp/${FNAME}.status" ]; then
-      STATUS_CODE=$(cat /tmp/${FNAME}.status | jq -r '.code')
+    if [ -f "/mnt/${FNAME}.status" ]; then
+      STATUS_CODE=$(cat /mnt/${FNAME}.status | jq -r '.code')
       logger "$0: ${FNAME}.status = $STATUS_CODE"
     else 
       update_status "3" "Status file not found"
