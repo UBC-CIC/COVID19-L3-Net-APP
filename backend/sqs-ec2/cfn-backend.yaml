@@ -144,10 +144,7 @@ Resources:
                           yum -y install https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
                           alias cp="cp -f"
                           cd /root 
-                          git clone ${gitHub} covid-19-app-${gitBranch} --branch ${gitBranch}
-                          cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-                          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
-                          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+                          git clone ${gitHub} covid-19-app-${gitBranch} --branch ${gitBranch}                          
                   - name: getimagename
                     action: ExecuteBash
                     inputs:
@@ -616,6 +613,7 @@ Resources:
             !Sub
               - |-
                 #!/bin/bash -xe
+                alias cp="cp -f"
                 yum -y --security update
                 yum -y update aws-cli                
                 EPHDEV=$(sudo lsblk --list | grep disk | awk '{print $1}' | while read -r line; do sudo file -s /dev/$line | awk '{if ($2 == "data") {print substr($1,1,length($1)-1)}}' ; done)
@@ -629,8 +627,12 @@ Resources:
                 echo -------------- Git checkout and pull  --------------
                 cd /root/covid-19-app-${gitBranch} 
                 git checkout ${gitBranch}
-                git pull                 
-                alias cp="cp -f"
+                git pull 
+                echo -------------- cloudwatch agent  --------------          
+                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+                /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
+                /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s                      
+                echo -------------- copying scripts  --------------
                 cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
                 cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/worker.service /etc/systemd/system/worker.service
                 cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/spot-instance-interruption-notice-handler.sh /usr/local/bin/
@@ -638,7 +640,16 @@ Resources:
                 sed -i "s|%gitBranchVar%|${gitBranch}|g" /usr/local/bin/worker.sh
                 chmod +x /usr/local/bin/spot-instance-interruption-notice-handler.sh
                 chmod +x /usr/local/bin/worker.sh 
-                logger "$0: -------------- Starting worker --------------"
+                echo -------------- container tag  --------------
+                if [[ "${gitBranch}" == "master" ]]; then
+                  IMAGE_TAG="latest"
+                else
+                  IMAGE_TAG="${gitBranch}"
+                fi
+                echo "-------------- Starting container model covid-19-api:$IMAGE_TAG --------------"
+                docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG
+                echo "-------------- Done --------------"
+                echo "-------------- Starting worker --------------"
                 systemctl start worker
               - gitBranch: !Ref gitHubBranch
                 gitHub: !Ref gitHubRepo
