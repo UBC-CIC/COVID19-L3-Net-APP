@@ -15,7 +15,7 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\",\"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
+    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
     aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
 }
@@ -126,7 +126,7 @@ logger "$0:-------------- Starting container model covid-19-api:$IMAGE_TAG -----
 CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG)
 logger "$0:-------------- Done --------------"
 ATTEMPT=0
-while [ $ATTEMPT -le 5 ]; do
+while [ $ATTEMPT -le 8 ]; do
     ATTEMPT=$(( $ATTEMPT + 1 ))
     logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
     docker logs $CONTAINERID 2>&1 | grep "ERROR"

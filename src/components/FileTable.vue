@@ -34,7 +34,7 @@
               >{{ val.status["msg"] }}</q-tooltip>
             </q-btn></td>          
           <td class="text-center">           
-              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined" @click="mlview(val.code)">
+              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined" @click="mlview(val.code, val.key)">
                 <q-tooltip
                   content-class="bg-black"
                   content-style="font-size: 16px"
@@ -100,8 +100,9 @@ export default {
   },
 
   methods: {
-    mlview(code) {
-      var url = process.env.VUE_APP_CLOUDFRONT_URL + '/html/' + code + '/index.html';
+    mlview(code, filename) {
+      let status = await this.getFileStatus(filename + ".status")
+      var url = status["cloudfrontUrl"] + '/html/' + code + '/index.html';
       //var win = window.open(url, '_blank');
       var win = window.open(url, '_self');
       win.focus();      
