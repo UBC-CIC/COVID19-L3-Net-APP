@@ -112,6 +112,29 @@ SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/sqsurl" --query
 WORKING_DIR=/root/covid-19-app-${GITBRANCH}/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
 
+logger "$0: -------------- container tag  --------------"
+if [[ "${GITBRANCH}" == "master" ]]; then
+  IMAGE_TAG="latest"
+else
+  IMAGE_TAG="${GITBRANCH}"
+fi 
+
+logger "$0:-------------- Starting container model covid-19-api:$IMAGE_TAG --------------"
+CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG)
+logger "$0:-------------- Done --------------"
+ATTEMPT=0
+while [ $ATTEMPT -le 5 ]; do
+    ATTEMPT=$(( $ATTEMPT + 1 ))
+    logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
+    RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+    if [[ $RESULT -eq 1 ]]; then
+      elogger "$0:Model is up!"
+      break
+    fi
+    sleep 5
+done
+
+
 while :;do 
 
   # Spot instance interruption notice detection
