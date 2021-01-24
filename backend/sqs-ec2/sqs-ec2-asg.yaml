@@ -141,8 +141,6 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     DependsOn:
     - launchTemplate
-    - publicSubnet1
-    - publicSubnet2
     - autoScalingServiceLinkedRole
     Properties:
       DesiredCapacity:

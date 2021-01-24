@@ -40,11 +40,23 @@ sed -i "s|%CLOUDFRONT%|$CLOUDFRONT|g" /usr/local/bin/worker.sh
 
 systemctl start awslogsd
 
-REGISTRY="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
-docker pull ${REGISTRY}/covid-19-api:latest
-docker tag ${REGISTRY}/covid-19-api:latest covid-19-api:latest
-docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:latest
+docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v1
+docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v1 covid-19-api:v1
+
+CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:v1)
+logger "$0:-------------- Done --------------"
+ATTEMPT=0
+while [ $ATTEMPT -le 8 ]; do
+    ATTEMPT=$(( $ATTEMPT + 1 ))
+    logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
+    docker logs $CONTAINERID 2>&1 | grep "ERROR"
+    RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+    if [[ $RESULT -eq 1 ]]; then
+      logger "$0:Model is up!"
+      break
+    fi
+    sleep 5
+done
 
 #systemctl start spot-instance-interruption-notice-handler
 logger "$0: -------------- Starting worker"
