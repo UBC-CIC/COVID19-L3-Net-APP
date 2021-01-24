@@ -15,7 +15,7 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\" }" > /mnt/${FNAME}.status    
+    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", , \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
     aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
 }
@@ -108,9 +108,12 @@ GITBRANCH="%gitBranchVar%"
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -d . -f 2)"
 CLOUDFRONT=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/cloudfrontdomain" --query Parameter.Value --output text)
+CLOUDFRONT="https://$CLOUDFRONT"
 SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/sqsurl" --query Parameter.Value --output text)
 WORKING_DIR=/root/covid-19-app-${GITBRANCH}/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
+
+logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
 
 logger "$0: -------------- container tag  --------------"
 if [[ "${GITBRANCH}" == "master" ]]; then
@@ -126,9 +129,10 @@ ATTEMPT=0
 while [ $ATTEMPT -le 5 ]; do
     ATTEMPT=$(( $ATTEMPT + 1 ))
     logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
+    docker logs $CONTAINERID 2>&1 | grep "ERROR"
     RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
     if [[ $RESULT -eq 1 ]]; then
-      elogger "$0:Model is up!"
+      logger "$0:Model is up!"
       break
     fi
     sleep 5
