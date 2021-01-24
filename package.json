@@ -11,7 +11,7 @@
     "@quasar/extras": "^1.0.0",
     "aws-amplify": "^3.0.18",
     "aws-amplify-vue": "^2.1.1",
-    "axios": "^0.19.2",
+    "axios": ">=0.21.1",
     "core-js": "^3.6.5",
     "moment-timezone": "^0.5.31",
     "quasar": "^1.12.8",
