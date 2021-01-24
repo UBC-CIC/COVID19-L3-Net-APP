@@ -100,7 +100,7 @@ export default {
   },
 
   methods: {
-    mlview(code, filename) {
+    async mlview(code, filename) {
       let status = await this.getFileStatus(filename + ".status")
       var url = status["cloudfrontUrl"] + '/html/' + code + '/index.html';
       //var win = window.open(url, '_blank');
