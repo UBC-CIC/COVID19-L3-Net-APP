@@ -57,10 +57,10 @@ process_file () {
     PNGS=""
     STATS=""
     for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
-      DCMS+="\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
+      echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n" >> /mnt/dcms.json
     done
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
-      PNGS+="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
+      echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n" >> /mnt/pngs.json
     done
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
       #Should only be 1 JSON file, so just take the last one.
@@ -83,8 +83,8 @@ process_file () {
     sed -i "s|DATAJS|${DATAJS}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
 
     cp $WORKING_DIR/sapien/data.js /mnt/html/$FNAME_NO_SUFFIX
-    sed -i "s|%DICOM_FILES%|${DCMS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%PNG_FILES%|${PNGS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
+    sed -i -e '/%DICOM_FILES%/{r /mnt/dcms.json' -e 'd}' /mnt/html/$FNAME_NO_SUFFIX/data.js
+    sed -i -e '/%PNG_FILES%/{r /mnt/pngs.json' -e 'd}' /mnt/html/$FNAME_NO_SUFFIX/data.js
     sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
 
     aws s3 cp --quiet --recursive /mnt/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$FILE_DATE/
