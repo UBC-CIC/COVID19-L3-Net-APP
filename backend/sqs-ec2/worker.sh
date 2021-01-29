@@ -57,10 +57,10 @@ process_file () {
     PNGS=""
     STATS=""
     for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
-      echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n" >> /mnt/dcms.json
+      echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/dcms.json
     done
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
-      echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n" >> /mnt/pngs.json
+      echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/pngs.json
     done
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
       #Should only be 1 JSON file, so just take the last one.
