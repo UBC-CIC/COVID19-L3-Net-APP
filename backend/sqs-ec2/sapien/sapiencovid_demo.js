@@ -870,7 +870,7 @@ function loadExmaple() {
         LoadMasks(files_mask, "_cca_90");
         LoadMasks(files_mask, "_cca_95");
 
-        r1.overlay_material = OverlayMasks[""];
+        r1.overlay_material = OverlayMasks["_cca_80"];
 
         var material = new THREE.SpriteMaterial( { map: r1.overlay_material[r1.stackHelper.index], color: 0xffffff } );
         material.opacity = 0.5;
