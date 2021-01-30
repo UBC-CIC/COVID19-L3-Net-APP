@@ -53,19 +53,22 @@ process_file () {
     unzip -j -q /mnt/$FNAME -d /mnt/dcm/$FNAME_NO_SUFFIX
 
     # Preping the data for the JSON File
-    DCMS=""
-    PNGS=""
     STATS=""
     for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
       echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/dcms-$FNAME_NO_SUFFIX-$FILE_DATE.txt
     done
+    DCMS=$(wc -l /mnt/dcms-$FNAME_NO_SUFFIX-$FILE_DATE.txt)
+    echo $DCMS 
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
       echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/pngs-$FNAME_NO_SUFFIX-$FILE_DATE.txt
     done
+    PNGS=$(wc -l /mnt/pngs-$FNAME_NO_SUFFIX-$FILE_DATE.txt)
+    echo $PNGS
     for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
       #Should only be 1 JSON file, so just take the last one.
       STATS="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
     done
+    echo $STATS
 
     # Copying to the public bucket
     logger "$0:----> Moving DCM and PNG files to S3"
