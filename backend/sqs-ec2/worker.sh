@@ -15,8 +15,8 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
-    aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
+    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/$RANDOM_STRING/${FNAME}.status    
+    aws s3 cp --quiet /mnt/$RANDOM_STRING/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
 }
 
@@ -31,116 +31,112 @@ process_file () {
     update_status "1" Processing
 
     # Copying the ZIP CT-Scan file
-    aws s3 cp s3://$S3BUCKET/$S3KEY /mnt/$FNAME
-    #
-    # 2020-07-23 14:01:19
-    # 202007231401
-    FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
+    aws s3 cp s3://$S3BUCKET/$S3KEY /mnt/$RANDOM_STRING/$FNAME    
+
+    # Preping DCM files to be sent to the model (making sure they are under a folder)
+    logger "$0: Preping DCM files"
+    unzip -j /mnt/$RANDOM_STRING/$FNAME -d /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-dcm
+    zip -r /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-dcm.zip /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-dcm/*
 
     logger "$0: Start model processing"
     # Submitting file to the model
     echo 
-    curl -X POST -F "input_file=@/mnt/$FNAME" http://localhost/predict/?format=png -o /mnt/$FNAME_NO_SUFFIX-png.zip
+    curl -X POST -F "input_file=@/mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-dcm.zip" http://localhost/predict/?format=png -o /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-png.zip
     logger "$0: END model processing"
 
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
-    mkdir -p /mnt/png/$FNAME_NO_SUFFIX    
-    unzip -j -q /mnt/$FNAME_NO_SUFFIX-png.zip -d /mnt/png/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/$RANDOM_STRING/png/$FNAME_NO_SUFFIX    
+    unzip -j -q /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX-png.zip -d /mnt/$RANDOM_STRING/png/$FNAME_NO_SUFFIX
     # Unzipping the dcm files
     logger "$0:----> Unzipping DCM files"
-    mkdir -p /mnt/dcm/$FNAME_NO_SUFFIX
-    unzip -j -q /mnt/$FNAME -d /mnt/dcm/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/$RANDOM_STRING/dcm/$FNAME_NO_SUFFIX
+    unzip -j -q /mnt/$RANDOM_STRING/$FNAME -d /mnt/$RANDOM_STRING/dcm/$FNAME_NO_SUFFIX
 
     # Preping the data for the JSON File
     STATS=""
-    for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
-      echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/dcms-$FNAME_NO_SUFFIX-$FILE_DATE.txt
+    for file in /mnt/$RANDOM_STRING/dcm/$FNAME_NO_SUFFIX/*.dcm; do
+      echo "\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$RANDOM_STRING/$(basename $file)\"," >> /mnt/$RANDOM_STRING/dcms-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt
     done
-    DCMS=$(wc -l /mnt/dcms-$FNAME_NO_SUFFIX-$FILE_DATE.txt)
+    DCMS=$(wc -l /mnt/$RANDOM_STRING/dcms-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt)
     echo $DCMS 
-    for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
-      echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\"," >> /mnt/pngs-$FNAME_NO_SUFFIX-$FILE_DATE.txt
+    for file in /mnt/$RANDOM_STRING/png/$FNAME_NO_SUFFIX/*.png; do
+      echo "\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$RANDOM_STRING/$(basename $file)\"," >> /mnt/$RANDOM_STRING/pngs-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt
     done
-    PNGS=$(wc -l /mnt/pngs-$FNAME_NO_SUFFIX-$FILE_DATE.txt)
+    PNGS=$(wc -l /mnt/$RANDOM_STRING/pngs-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt)
     echo $PNGS
-    for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
+    for file in /mnt/$RANDOM_STRING/png/$FNAME_NO_SUFFIX/*.json; do
       #Should only be 1 JSON file, so just take the last one.
-      STATS="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
+      STATS="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$RANDOM_STRING/$(basename $file)\",\n"
     done
     echo $STATS
 
     # Copying to the public bucket
     logger "$0:----> Moving DCM and PNG files to S3"
-    aws s3 cp --quiet --recursive /mnt/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/
-    aws s3 cp --quiet --recursive /mnt/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$RANDOM_STRING/
+    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$RANDOM_STRING/
   
     # html and data.js file
     logger "$0:----> Preping index.html and data.js"
-    mkdir -p /mnt/html/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX
 
-    DATAJS=${CLOUDFRONT}/html/$FNAME_NO_SUFFIX-$FILE_DATE/data.js
+    DATAJS=${CLOUDFRONT}/html/$FNAME_NO_SUFFIX-$RANDOM_STRING/data.js
 
-    cp $WORKING_DIR/sapien/index.html /mnt/html/$FNAME_NO_SUFFIX
-    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
-    sed -i "s|DATAJS|${DATAJS}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
+    cp $WORKING_DIR/sapien/index.html /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX
+    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX/index.html
+    sed -i "s|DATAJS|${DATAJS}|g" /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX/index.html
 
-    cp $WORKING_DIR/sapien/data.js /mnt/html/$FNAME_NO_SUFFIX
-    sed -i -e "/%DICOM_FILES%/{r /mnt/dcms-$FNAME_NO_SUFFIX-$FILE_DATE.txt" -e "d}" /mnt/html/$FNAME_NO_SUFFIX/data.js
-    sed -i -e "/%PNG_FILES%/{r /mnt/pngs-$FNAME_NO_SUFFIX-$FILE_DATE.txt" -e "d}" /mnt/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
+    cp $WORKING_DIR/sapien/data.js /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX
+    sed -i -e "/%DICOM_FILES%/{r /mnt/$RANDOM_STRING/dcms-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt" -e "d}" /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX/data.js
+    sed -i -e "/%PNG_FILES%/{r /mnt/$RANDOM_STRING/pngs-$FNAME_NO_SUFFIX-$RANDOM_STRING.txt" -e "d}" /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX/data.js
+    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX/data.js
 
-    aws s3 cp --quiet --recursive /mnt/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$RANDOM_STRING/
 
     # Updating status
     update_status "2" Ready    
-
     logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
-
     aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
-
     logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in"
-
     aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in
-
     sleep 5
 
 }
 
-GITBRANCH="%gitBranchVar%"
+start_model() {
+  TAG=$1
+  CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
+  if [[ $CONTAINER_STATUS == covid-19* ]]; then
+    logger "$0:docker is already up!"
+    exit
+  fi
+  logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
+  CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$TAG)
+  logger "$0:-------------- Done --------------"
+  ATTEMPT=0
+  while [ $ATTEMPT -le 8 ]; do
+      ATTEMPT=$(( $ATTEMPT + 1 ))
+      logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
+      docker logs $CONTAINERID 2>&1 | grep "ERROR"
+      RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+      if [[ $RESULT -eq 1 ]]; then
+        logger "$0:docker is up!"
+        break
+      fi
+      sleep 5
+  done
+}
+
+# Initializing Variables
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -d . -f 2)"
-CLOUDFRONT=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/cloudfrontdomain" --query Parameter.Value --output text)
+CLOUDFRONT=$(aws ssm get-parameter --name "/covid19l3/cloudfrontdomain" --query Parameter.Value --output text)
 CLOUDFRONT="https://$CLOUDFRONT"
-SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/sqsurl" --query Parameter.Value --output text)
-WORKING_DIR=/root/covid-19-app-${GITBRANCH}/backend/sqs-ec2
+SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/sqsurl" --query Parameter.Value --output text)
+WORKING_DIR=/root/covid-19-app/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
 
 logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
-
-logger "$0: -------------- container tag  --------------"
-if [[ "${GITBRANCH}" == "master" ]]; then
-  IMAGE_TAG="latest"
-else
-  IMAGE_TAG="${GITBRANCH}"
-fi 
-
-logger "$0:-------------- Starting container model covid-19-api:$IMAGE_TAG --------------"
-CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG)
-logger "$0:-------------- Done --------------"
-ATTEMPT=0
-while [ $ATTEMPT -le 8 ]; do
-    ATTEMPT=$(( $ATTEMPT + 1 ))
-    logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
-    docker logs $CONTAINERID 2>&1 | grep "ERROR"
-    RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
-    if [[ $RESULT -eq 1 ]]; then
-      logger "$0:Model is up!"
-      break
-    fi
-    sleep 5
-done
-
 
 while :;do 
 
@@ -186,15 +182,22 @@ while :;do
 
     logger "$0: Found work. Details: S3KEY=$S3KEY, FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
+    # Format 2020-07-23 14:01:19 to 202007231401
+    FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
+    RANDOM_STRING=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-8} | head -n 1)
+
+    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/$RANDOM_DIR/${FNAME}.status
+    
+    TAG=$(cat /mnt/$RANDOM_DIR/${FNAME}.status | jq -r '.version')
+    start_model $TAG
+
     if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/sapiencovid_demo.js)" ]; then
       logger "$0: Copying sapien plugin files to S3"
       aws s3 cp --quiet --recursive $WORKING_DIR/sapien/ s3://$S3BUCKET/public/sapien/
     fi
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/${FNAME}.status
-
-    if [ -f "/mnt/${FNAME}.status" ]; then
-      STATUS_CODE=$(cat /mnt/${FNAME}.status | jq -r '.code')
+    if [ -f "/mnt/$RANDOM_STRING/${FNAME}.status" ]; then
+      STATUS_CODE=$(cat /mnt/$RANDOM_STRING/${FNAME}.status | jq -r '.code')
       logger "$0: ${FNAME}.status = $STATUS_CODE"
     else 
       update_status "3" "Status file not found"
