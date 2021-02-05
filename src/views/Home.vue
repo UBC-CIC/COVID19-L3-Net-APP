@@ -20,6 +20,7 @@
               id="qfile"
               style="max-width: 450px"
               v-model="files"
+              max-files="50"
               @input="updateFiles"
               outlined
               label="CTScans (zip only)"
