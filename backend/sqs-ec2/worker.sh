@@ -97,6 +97,30 @@ process_file () {
 
 }
 
+start_model() {
+  TAG=$1
+  CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
+  if [[ $CONTAINER_STATUS == covid-19* ]]; then
+    logger "$0:docker is already up!"
+    exit
+  fi
+  logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
+  CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$TAG)
+  logger "$0:-------------- Done --------------"
+  ATTEMPT=0
+  while [ $ATTEMPT -le 8 ]; do
+      ATTEMPT=$(( $ATTEMPT + 1 ))
+      logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
+      docker logs $CONTAINERID 2>&1 | grep "ERROR"
+      RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+      if [[ $RESULT -eq 1 ]]; then
+        logger "$0:docker is up!"
+        break
+      fi
+      sleep 5
+  done
+}
+
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION=%REGION%
 CLOUDFRONT="https://%CLOUDFRONT%"
@@ -106,6 +130,7 @@ AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INS
 
 docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v1
 docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v1 covid-19-api:v1
+start_model "v1"
 
 while :;do 
 
