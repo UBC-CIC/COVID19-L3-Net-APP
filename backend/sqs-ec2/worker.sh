@@ -104,6 +104,9 @@ SQSQUEUE=%SQSQUEUE%
 WORKING_DIR=%WORKING_DIR%
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
 
+docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v1
+docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v1 covid-19-api:v1
+
 while :;do 
 
   # Spot instance interruption notice detection
