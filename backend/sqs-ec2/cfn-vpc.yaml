@@ -129,6 +129,88 @@ Resources:
         Ref: publicSubnet2
     Type: AWS::EC2::SubnetRouteTableAssociation
 
+
+  lambdaSubnet1:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 0
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 1
+          - 10
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+
+  lambdaSubnet1RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - lambdaSubnet1
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: lambdaSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
+
+  lambdaSubnet2:
+    DependsOn:
+    - attachGateway
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock:
+        Fn::Select:
+        - 1
+        - Fn::Cidr:
+          - Fn::FindInMap:
+            - CidrMappings
+            - vpc
+            - CIDR
+          - 1
+          - 10
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+      VpcId:
+        Ref: vpc
+    Type: AWS::EC2::Subnet
+
+  lambdaSubnet2RouteTableAssociation:
+    DependsOn:
+    - publicRouteTable
+    - lambdaSubnet2
+    - attachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      SubnetId:
+        Ref: lambdaSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+
   vpc:
     Type: AWS::EC2::VPC
     Properties:
@@ -175,6 +257,14 @@ Resources:
       Value: !Ref SecurityGroup
       Description: SecurityGroup
 
+  PublicRouteTableParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/publicroutetable
+      Type: String
+      Value: !Ref publicRouteTable
+      Description: SecurityGroup
+
   Subnet1Parameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -190,6 +280,22 @@ Resources:
       Type: String
       Value: !Ref publicSubnet2
       Description: Public Subnet2
+
+  LambdaSubnet1Parameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/lambdasubnet1
+      Type: String
+      Value: !Ref lambdaSubnet1
+      Description: lambda Subnet1
+
+  LambdaSubnet2Parameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /covid19l3/lambdasubnet2
+      Type: String
+      Value: !Ref lambdaSubnet2
+      Description: lambda Subnet2
 
 Outputs:
   awsRegionId:

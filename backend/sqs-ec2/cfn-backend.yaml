@@ -309,6 +309,27 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt originAccessIdentity.S3CanonicalUserId
 
+  s3Endpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: s3Bucket
+                - /*
+      RouteTableIds:
+        - '{{resolve:ssm:/covid19l3/publicroutetable:1}}'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
+
   bucketParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -316,7 +337,115 @@ Resources:
       Type: String
       Value: !Ref s3Bucket
       Description: !Sub s3Bucket for covid19l3 ${gitHubBranch}
-    
+
+####
+#
+#   EFS
+#
+####
+
+  FileSystemResource:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      BackupPolicy:
+        Status: ENABLED
+      PerformanceMode: maxIO
+      Encrypted: true
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_15_DAYS
+      FileSystemTags:
+        - Key: Name
+          Value: Covid19App
+      KmsKeyId: !GetAtt 
+        - efsKmsKey
+        - Arn
+  
+  efsKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+            Action:
+              - 'kms:*'
+            Resource: '*'
+            AWS: "*"
+
+  mountTargetLambda1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: '{{resolve:ssm:/covid19l3/lambdasubnet1:1}}'
+      SecurityGroups:
+      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+
+  mountTargetLambda2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
+      SecurityGroups:
+      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+
+  mountTargetEC21:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: '{{resolve:ssm:/covid19l3/subnet1:1}}'
+      SecurityGroups:
+      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+
+  mountTargetEC22:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
+      SecurityGroups:
+      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+
+  accessPointLambda:
+    Type: 'AWS::EFS::AccessPoint'
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      PosixUser:
+        Uid: "1000"
+        Gid: "1000"
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: "1000"
+          OwnerUid: "1000"
+          Permissions: "0755"
+        Path: "/efs/lambda"
+
+  accessPointEC2:
+    Type: 'AWS::EFS::AccessPoint'
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      PosixUser:
+        Uid: "1001"
+        Gid: "1001"
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: "1001"
+          OwnerUid: "1001"
+          Permissions: "0755"
+        Path: "/efs/ec2"
+
+####
+#
+#
+#
+####
+
   autoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     DependsOn:
@@ -619,11 +748,8 @@ Resources:
                 yum -y --security update
                 yum -y update aws-cli                
                 EPHDEV=$(sudo lsblk --list | grep disk | awk '{print $1}' | while read -r line; do sudo file -s /dev/$line | awk '{if ($2 == "data") {print substr($1,1,length($1)-1)}}' ; done)
-                echo -------------- Formating $EPHDEV Instance Store --------------
-                sudo mkfs -t ext4 $EPHDEV
-                sudo mount $EPHDEV /mnt
-                sudo chown ec2-user:wheel /mnt
-                echo -------------- Done --------------
+                #echo -------------- EFS Mount --------------
+                sudo mount -t efs ${accesspoint}:/ mnt
                 aws configure set default.region ${awsRegion}
                 systemctl status amazon-ssm-agent
                 echo -------------- Git checkout and pull  --------------
@@ -648,11 +774,29 @@ Resources:
               - gitBranch: !Ref gitHubBranch
                 gitHub: !Ref gitHubRepo
                 awsRegion: !Sub '${AWS::Region}'
+                accesspoint: !Ref accessPointEC2
                   
   sqsQueue:
     Type: AWS::SQS::Queue
     Properties:
       VisibilityTimeout: 900
+
+  sqsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Join 
+        - ''
+        - - com.amazonaws.
+          - !Ref 'AWS::Region'
+          - .sqs
+      SubnetIds:
+        - '{{resolve:ssm:/covid19l3/lambdasubnet1:1}}'
+        - '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
+      VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+        - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+      PrivateDnsEnabled: true
 
   sqsQueuePolicy:
     Type: AWS::SQS::QueuePolicy

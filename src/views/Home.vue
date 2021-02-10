@@ -15,10 +15,21 @@
 
           <q-separator />
 
+          <q-card-section>
+            <div class="q-gutter-sm">
+              <div class="text-subtitle2">
+                Please select the ML model version to process the uploaded files. 
+              </div>
+              <q-checkbox v-model="mlversion" val="v1" label="v1" />
+              <q-checkbox v-model="mlversion" val="v2" label="v2 (latest)" />
+            </div>
+          </q-card-section>
+
           <q-card-actions>
             <q-file
               id="qfile"
               style="max-width: 450px"
+              max-files="50"
               v-model="files"
               @input="updateFiles"
               outlined
@@ -128,7 +139,8 @@ export default {
       uploadProgress: [],
       uploading: null,
       //max_upload_size: process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES,
-      updateTigger: 0
+      updateTigger: 0,
+      mlversion: [ "v2" ]
     };
   },
 
@@ -145,7 +157,12 @@ export default {
     },
 
     canUpload() {
-      return this.files !== null;
+      if (( this.files !== null) && (this.mlversion.length != 0)) {
+        return true;
+      }
+      else {
+        return false;
+      }
     }
   },
 
@@ -178,6 +195,7 @@ export default {
     },
 
     upload() {
+      var versions = this.mlversion;
       this.uploadProgress.forEach(f => {
         if (f.file.size === 0) {
           return;
@@ -186,17 +204,29 @@ export default {
         const reader = new FileReader();
         var vm = this;
 
-        reader.onload = function(event) {
-          var contents = event.target.result;
-          Storage.put(
-            f.file.name.toLowerCase() + ".status",
-            '{ "code": 0, "msg": "Sent to validation" }',
-            {
-              level: "private",
-              contentType: "application/json"
-            }
-          ).catch(error => console.log(error));
+        reader.onload = function(event) {      
+          var statusObj = {};          
+          statusObj.cloudfrontUrl = "";
+          statusObj.versions = []       
+          for (var i = 0; i < versions.length; i++) {
+            statusObj.versions.push({
+              code: 0,
+              msg: "Sent to validation",
+              version: versions[i]
+            })
+          }
 
+          var jsonString= JSON.stringify(statusObj);
+
+          Storage.put(
+          f.file.name.toLowerCase() + ".status", jsonString,
+          {
+            level: "private",
+            contentType: "application/json"
+          }
+        ).catch(error => console.log(error));
+      
+          var contents = event.target.result;
           Storage.put(f.file.name.toLowerCase(), contents, {
             level: "private",
             contentType: "application/zip",

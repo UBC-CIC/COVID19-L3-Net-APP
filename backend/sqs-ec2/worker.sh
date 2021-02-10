@@ -15,6 +15,8 @@ urlencode() {
 update_status () {
     CODE=$1
     MSG=$2
+    jSONSTR=($(jq -r . /mnt/$RANDOM_STRING/${FNAME}.status))
+    jq '.code = "$CODE"' <<<"$jSONSTR"
     echo "{ \"code\": $CODE, \"msg\": \"$MSG\", \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/$RANDOM_STRING/${FNAME}.status    
     aws s3 cp --quiet /mnt/$RANDOM_STRING/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
     logger "$0:----> Status changed to $MSG"
@@ -178,17 +180,23 @@ while :;do
   FNAME_NO_SUFFIX="$(basename $S3KEY .zip)"
   FEXT=$(echo $S3KEY | rev | cut -f1 -d"." | rev)
 
-  if [ "$FEXT" = "zip" ]; then
+  if [ "$FEXT" = "status" ]; then
 
     logger "$0: Found work. Details: S3KEY=$S3KEY, FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
     # Format 2020-07-23 14:01:19 to 202007231401
     FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
-    RANDOM_STRING=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-8} | head -n 1)
+    RANDOM_STRING=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-10} | head -n 1)
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/$RANDOM_DIR/${FNAME}.status
+    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/$RANDOM_STRING/${FNAME}.status
     
-    TAG=$(cat /mnt/$RANDOM_DIR/${FNAME}.status | jq -r '.version')
+    VERSIONS=$(cat /mnt/$RANDOM_STRING/${FNAME}.status | jq -r '.versions' | jq length
+
+    # for i in $(seq 1 $END); do echo $i; done
+
+    # VERTOPROCESS=$(cat /mnt/$RANDOM_STRING/${FNAME}.status | jq -r '.versions[1].version'
+
+    TAG=$(cat /mnt/$RANDOM_STRING/${FNAME}.status | jq -r '.version')
     start_model $TAG
 
     if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/sapiencovid_demo.js)" ]; then
