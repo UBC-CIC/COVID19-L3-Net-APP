@@ -100,10 +100,12 @@ Resources:
               - s3:PutObject
             Effect: Allow
             Resource:
-              - Fn::Sub:
-                  - arn:${AWS::Partition}:s3:::${BUCKET}/*
-                  - BUCKET:
-                      Ref: ImageBuilderLogBucket
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: ImageBuilderLogBucket
+                - /*
+
   ImageBuilderInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -144,27 +146,18 @@ Resources:
                           yum -y install https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
                           alias cp="cp -f"
                           cd /root 
-                          git clone ${gitHub} covid-19-app-${gitBranch} --branch ${gitBranch}
-                          cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-                          cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/seelog.xml /etc/amazon/ssm/seelog.xml                          
-                  - name: getimagename
-                    action: ExecuteBash
-                    inputs:
-                      commands:
-                        - |
-                          if [[ "${gitBranch}" == "master" ]]; then
-                            echo "latest"
-                          else
-                            echo "${gitBranch}"
-                          fi
+                          git clone ${gitHub} covid-19-app --branch ${gitBranch}
+                          cp /root/covid-19-app/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+                          cp /root/covid-19-app/backend/sqs-ec2/seelog.xml /etc/amazon/ssm/seelog.xml                          
 
                   - name: dockerpull
                     action: ExecuteBash
                     inputs:
                       commands:          
-                        - 'CONTAINER_TAG={{ build.getimagename.outputs.stdout }}'
-                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:$CONTAINER_TAG
-                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:$CONTAINER_TAG covid-19-api:$CONTAINER_TAG
+                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v1
+                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v1 covid-19-api:v1
+                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v2
+                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v2 covid-19-api:v2
           - gitHub: !Ref gitHubRepo
             gitBranch: !Ref gitHubBranch
             awsRegion: !Sub '{AWS:Region}'
@@ -348,39 +341,15 @@ Resources:
     Type: AWS::EFS::FileSystem
     Properties:
       BackupPolicy:
-        Status: ENABLED
+        Status: DISABLED
       PerformanceMode: maxIO
-      Encrypted: true
       LifecyclePolicies:
-        - TransitionToIA: AFTER_15_DAYS
+        - TransitionToIA: AFTER_7_DAYS
       FileSystemTags:
         - Key: Name
           Value: Covid19App
-      KmsKeyId: !GetAtt 
-        - efsKmsKey
-        - Arn
-  
-  efsKmsKey:
-    Type: AWS::KMS::Key
-    Properties:
-      KeyPolicy:
-        Version: 2012-10-17
-        Id: key-default-1
-        Statement:
-          - Sid: Allow administration of the key
-            Effect: Allow
-            Principal:
-              AWS: !Join 
-                - ''
-                - - 'arn:aws:iam::'
-                  - !Ref 'AWS::AccountId'
-                  - ':root'
-            Action:
-              - 'kms:*'
-            Resource: '*'
-            AWS: "*"
 
-  mountTargetLambda1:
+  mountTargetAZ1:
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref FileSystemResource
@@ -388,23 +357,7 @@ Resources:
       SecurityGroups:
       - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
 
-  mountTargetLambda2:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId: !Ref FileSystemResource
-      SubnetId: '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
-      SecurityGroups:
-      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
-
-  mountTargetEC21:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId: !Ref FileSystemResource
-      SubnetId: '{{resolve:ssm:/covid19l3/subnet1:1}}'
-      SecurityGroups:
-      - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
-
-  mountTargetEC22:
+  mountTargetAZ2:
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref FileSystemResource
@@ -753,20 +706,19 @@ Resources:
                 aws configure set default.region ${awsRegion}
                 systemctl status amazon-ssm-agent
                 echo -------------- Git checkout and pull  --------------
-                cd /root/covid-19-app-${gitBranch} 
+                cd /root/covid-19-app
                 git checkout ${gitBranch}
                 git pull 
                 echo -------------- cloudwatch agent  --------------          
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/seelog.xml /etc/amazon/ssm/seelog.xml
+                cp /root/covid-19-app/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+                cp /root/covid-19-app/backend/sqs-ec2/seelog.xml /etc/amazon/ssm/seelog.xml
                 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
                 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s                      
                 echo -------------- copying scripts  --------------
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/worker.service /etc/systemd/system/worker.service
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/spot-instance-interruption-notice-handler.sh /usr/local/bin/
-                cp /root/covid-19-app-${gitBranch}/backend/sqs-ec2/worker.sh /usr/local/bin
-                sed -i "s|%gitBranchVar%|${gitBranch}|g" /usr/local/bin/worker.sh
+                cp /root/covid-19-app/backend/sqs-ec2/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
+                cp /root/covid-19-app/backend/sqs-ec2/worker.service /etc/systemd/system/worker.service
+                cp /root/covid-19-app/backend/sqs-ec2/spot-instance-interruption-notice-handler.sh /usr/local/bin/
+                cp /root/covid-19-app/backend/sqs-ec2/worker.sh /usr/local/bin
                 chmod +x /usr/local/bin/spot-instance-interruption-notice-handler.sh
                 chmod +x /usr/local/bin/worker.sh                          
                 echo "-------------- Starting worker --------------"
@@ -796,7 +748,7 @@ Resources:
       VpcEndpointType: Interface
       SecurityGroupIds:
         - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
-      PrivateDnsEnabled: true
+      PrivateDnsEnabled: false
 
   sqsQueuePolicy:
     Type: AWS::SQS::QueuePolicy

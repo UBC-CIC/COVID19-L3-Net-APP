@@ -141,13 +141,13 @@ Resources:
             Ref: AWS::Region
       CidrBlock:
         Fn::Select:
-        - 0
+        - 3
         - Fn::Cidr:
           - Fn::FindInMap:
             - CidrMappings
             - vpc
             - CIDR
-          - 1
+          - 10
           - 10
       MapPublicIpOnLaunch: false
       Tags:
@@ -182,13 +182,13 @@ Resources:
             Ref: AWS::Region
       CidrBlock:
         Fn::Select:
-        - 1
+        - 4
         - Fn::Cidr:
           - Fn::FindInMap:
             - CidrMappings
             - vpc
             - CIDR
-          - 1
+          - 10
           - 10
       MapPublicIpOnLaunch: false
       Tags:
@@ -263,7 +263,7 @@ Resources:
       Name: /covid19l3/publicroutetable
       Type: String
       Value: !Ref publicRouteTable
-      Description: SecurityGroup
+      Description: publicRouteTable
 
   Subnet1Parameter:
     Type: AWS::SSM::Parameter

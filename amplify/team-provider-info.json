@@ -1,15 +1,15 @@
 {
   "dev": {
     "awscloudformation": {
-      "AuthRoleName": "amplify-covid19l3netapp-dev-145917-authRole",
-      "UnauthRoleArn": "arn:aws:iam::900537753864:role/amplify-covid19l3netapp-dev-145917-unauthRole",
-      "AuthRoleArn": "arn:aws:iam::900537753864:role/amplify-covid19l3netapp-dev-145917-authRole",
-      "Region": "ca-central-1",
-      "DeploymentBucketName": "amplify-covid19l3netapp-dev-145917-deployment",
-      "UnauthRoleName": "amplify-covid19l3netapp-dev-145917-unauthRole",
-      "StackName": "amplify-covid19l3netapp-dev-145917",
-      "StackId": "arn:aws:cloudformation:ca-central-1:900537753864:stack/amplify-covid19l3netapp-dev-145917/71f0ff70-6b2a-11eb-97f4-0ad2f3beacde",
-      "AmplifyAppId": "d19chg8qwte7hu"
+      "AuthRoleName": "amplify-covid19l3netapp-dev-185805-authRole",
+      "UnauthRoleArn": "arn:aws:iam::900537753864:role/amplify-covid19l3netapp-dev-185805-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::900537753864:role/amplify-covid19l3netapp-dev-185805-authRole",
+      "Region": "us-west-2",
+      "DeploymentBucketName": "amplify-covid19l3netapp-dev-185805-deployment",
+      "UnauthRoleName": "amplify-covid19l3netapp-dev-185805-unauthRole",
+      "StackName": "amplify-covid19l3netapp-dev-185805",
+      "StackId": "arn:aws:cloudformation:us-west-2:900537753864:stack/amplify-covid19l3netapp-dev-185805/f843f100-6c14-11eb-a430-0695fe2463b7",
+      "AmplifyAppId": "d2wnmd8mw07nud"
     },
     "categories": {
       "auth": {
