@@ -178,9 +178,11 @@ export default {
       try {
         this.data = [];
         let listFiles = await this.listStorageFiles();
+        console.log(listFiles);
         for (let i = 0; i < listFiles.length; ++i) {          
           if (listFiles[i].key) {
             let filename = listFiles[i].key;
+            console.log(filename);
             if (
               filename.substring(filename.length - 3, filename.length) == "zip"
             ) {
