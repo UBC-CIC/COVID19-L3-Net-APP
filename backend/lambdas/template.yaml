@@ -22,7 +22,7 @@ Resources:
       Type: AWS::Serverless::LayerVersion
       Properties:
         Description: PyDicom
-        ContentUri: ./layers/pydicom.zip
+        ContentUri: ../layers/pydicom.zip
         CompatibleRuntimes:
           - python3.8
           - python3.7
@@ -31,7 +31,7 @@ Resources:
   Validation:
     Type: AWS::Serverless::Function 
     Properties:
-      CodeUri: ./lambdas/validation/
+      CodeUri: ./validation/
       Layers:
       - !Ref PyDicomLayer
       Policies:
@@ -42,6 +42,15 @@ Resources:
         - S3CrudPolicy:
             BucketName:
               !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
+      VpcConfig: 
+        SecurityGroupIds:
+          - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+        SubnetIds:
+          - '{{resolve:ssm:/covid19l3/lambdasubnet1:1}}'
+          - '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
+      FileSystemConfigs:
+        - Arn: !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/efslambdaarn:1}}' 
+          LocalMountPath: /mnt/tmp
       Environment:
         Variables:
           Bucket:

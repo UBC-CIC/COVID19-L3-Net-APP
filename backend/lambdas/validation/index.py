@@ -47,7 +47,7 @@ def ziptest(filename):
     errMsg = ""
     file_count = 0
     letters = string.ascii_lowercase
-    temp_path = "/mnt/lambda/" + ( ''.join(random.choice(letters) for i in range(8)) )
+    temp_path = "/mnt/tmp/" + ( ''.join(random.choice(letters) for i in range(8)) )
     try:
         zipfile.is_zipfile(filename)        
     except:
@@ -90,7 +90,7 @@ def handler(event, context):
             logger.error("something went wrong")
             return False
     
-        statusFile = '/mnt/lambda/' + s3Key.split(":")[1]
+        statusFile = '/mnt/tmp/' + s3Key.split(":")[1]
         zipFile = statusFile.replace("status","zip")
         print("statusFile: " + statusFile)
         print("zipFile: " + zipFile)

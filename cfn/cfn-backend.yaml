@@ -10,9 +10,6 @@ Parameters:
     Type: String 
   Ec2KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-  amazonLinuxAmi:
-    Type: String 
-    Description: Deep Learning AMI (Amazon Linux 2)
   s3Bucket:
     Type: String
   desiredCapacity:
@@ -63,186 +60,7 @@ Parameters:
     MinValue: 60
 
 Resources:
-  ImageBuilderLogBucket:
-    Type: AWS::S3::Bucket
 
-  ImageBuilderInstanceRole:
-    Type: AWS::IAM::Role
-    Metadata:
-      Comment: Role to be used by instance during image build.
-    Properties:
-      ManagedPolicyArns:
-        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/EC2InstanceProfileForImageBuilder
-      AssumeRolePolicyDocument:
-        Statement:
-          - Action:
-              - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - ec2.amazonaws.com
-        Version: "2012-10-17"
-      Path: /executionServiceEC2Role/
-
-  InstanceRoleLoggingPolicy:
-    Type: AWS::IAM::Policy
-    Metadata:
-      Comment: Allows the instance to save log files to an S3 bucket.
-    Properties:
-      PolicyName: ImageBuilderLogBucketPolicy
-      Roles:
-        - Ref: ImageBuilderInstanceRole
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Action:
-              - s3:PutObject
-            Effect: Allow
-            Resource:
-            - Fn::Join:
-              - ''
-              - - 'arn:aws:s3:::'
-                - Ref: ImageBuilderLogBucket
-                - /*
-
-  ImageBuilderInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Path: /executionServiceEC2Role/
-      Roles:
-        - Ref: ImageBuilderInstanceRole
-
-  ContainerBuildComponent:
-    Type: 'AWS::ImageBuilder::Component'
-    Properties:
-      Name: !Sub Covid19-Model-Builder-${AWS::StackName}
-      Platform: 'Linux'
-      Version: "1.0.0"
-      Description:
-        !Join
-          - ''
-          - - 'Covid19-Component-'
-            - !Ref gitHubBranch
-      ChangeDescription: 'change-description'
-      # Require one of 'Data' or 'Uri' for Component template
-      Data: 
-        !Sub 
-          - |-
-            name: Covid19Model - InlineData
-            description: Covid19 Model Load
-            schemaVersion: 1.0
-
-            phases:                       
-              - name: build
-                steps:
-                  - name: repoclone
-                    action: ExecuteBash
-                    inputs:
-                      commands:
-                        - |
-                          aws configure set default.region ${awsRegion}
-                          yum -y install git amazon-cloudwatch-agent jq                                    
-                          yum -y install https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-                          alias cp="cp -f"
-                          cd /root 
-                          git clone ${gitHub} covid-19-app --branch ${gitBranch}
-                          cp /root/covid-19-app/backend/sqs-ec2/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-                          cp /root/covid-19-app/backend/sqs-ec2/seelog.xml /etc/amazon/ssm/seelog.xml                          
-
-                  - name: dockerpull
-                    action: ExecuteBash
-                    inputs:
-                      commands:          
-                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v1
-                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v1 covid-19-api:v1
-                        - docker pull public.ecr.aws/k1w5m7b3/covid-19-api:v2
-                        - docker tag  public.ecr.aws/k1w5m7b3/covid-19-api:v2 covid-19-api:v2
-          - gitHub: !Ref gitHubRepo
-            gitBranch: !Ref gitHubBranch
-            awsRegion: !Sub '{AWS:Region}'
-
-  ImageRecipe:
-    Type: 'AWS::ImageBuilder::ImageRecipe'
-    Properties:
-      Name: !Sub Covid19-Model-Recipe-${AWS::StackName}
-      Description:
-        !Join
-          - ''
-          - - 'Covid19-Recipe-'
-            - !Ref gitHubBranch
-      Version: '1.0.0'
-      ParentImage: !Ref amazonLinuxAmi
-      Components:
-        - ComponentArn: !Ref ContainerBuildComponent
-
-  InfrastructureConfiguration:
-    Type: AWS::ImageBuilder::InfrastructureConfiguration
-    Properties:
-      Name: !Sub Covid19-Model-Infrastructure-${AWS::StackName}
-      Description:
-        !Join
-          - ''
-          - - 'Covid19-Infrastructure-'
-            - !Ref gitHubBranch
-      InstanceProfileName:
-        Ref: ImageBuilderInstanceProfile
-      # Set of one or more instance types to use when building the instance. Image Builder will select a type
-      # based on availability.
-      InstanceTypes:
-        - 'g4dn.xlarge'
-        - 'g4dn.2xlarge'
-      # Specify an S3 bucket and EC2 Image Builder will save logs to the bucket.
-      Logging:
-        S3Logs:
-          S3BucketName:
-            Ref: ImageBuilderLogBucket
-          S3KeyPrefix: !Join [ "-", [ 'imagebuilder', !Ref "AWS::StackName" ] ]
-      # If you would like to keep the instance running after a failed build, set TerminateInstanceOnFailure to false.
-      TerminateInstanceOnFailure: true
-      # If you do not have a default VPC or want to use a different VPC, you must specify the IDs of a subnet and one or more
-      # security groups to be associated with the build instance.
-      SubnetId: '{{resolve:ssm:/covid19l3/subnet1:1}}' 
-      SecurityGroupIds: 
-        - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
-
-  covid19l3Image:
-    Type: AWS::ImageBuilder::Image
-    Properties:
-      ImageRecipeArn:
-        Ref: ImageRecipe
-      InfrastructureConfigurationArn:
-        Ref: InfrastructureConfiguration
-
-  covid19l3ImagePipeline:
-    Type: 'AWS::ImageBuilder::ImagePipeline'
-    Properties:
-      Name: !Sub Covid19-ImagePipeline-${AWS::StackName}
-      Description:
-        !Join
-          - ''
-          - - 'Covid19-ImagePipeline-'
-            - !Ref gitHubBranch
-      ImageRecipeArn: !Ref ImageRecipe
-      InfrastructureConfigurationArn: !Ref InfrastructureConfiguration
-      Status: 'DISABLED'
-
-  # Create an SSM Parameter Store entry with our resulting ImageId.
-  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
-  ImageParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Description: Image Id for Covid19l3
-      Name: !Sub /covid19l3/${gitHubBranch}/imageid
-      Type: String
-      Value:
-        Fn::GetAtt: [covid19l3Image, ImageId]
-
-###################################################################################################
-#
-#    Background components
-#
-###################################################################################################
   originAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties: 
@@ -302,26 +120,37 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt originAccessIdentity.S3CanonicalUserId
 
-  s3Endpoint:
-    Type: 'AWS::EC2::VPCEndpoint'
-    Properties:
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: '*'
-            Action:
-              - 's3:GetObject'
-            Resource:
-            - Fn::Join:
-              - ''
-              - - 'arn:aws:s3:::'
-                - Ref: s3Bucket
-                - /*
-      RouteTableIds:
-        - '{{resolve:ssm:/covid19l3/publicroutetable:1}}'
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
-      VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
+  # s3Endpoint:
+  #   Type: 'AWS::EC2::VPCEndpoint'
+  #   Properties:
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal: '*'
+  #           Action:
+  #             - 's3:GetObject'
+  #           Resource:
+  #           - Fn::Join:
+  #             - ''
+  #             - - 'arn:aws:s3:::'
+  #               - Ref: s3Bucket
+  #               - /*
+  #           - Fn::Join:
+  #             - ''
+  #             - - 'arn:aws:s3:::'
+  #               - Ref: ImageBuilderLogBucket
+  #               - /*
+  #           - Fn::Join:
+  #             - ''
+  #             - - 'arn:aws:s3:::'
+  #               - Ref: ec2imagebuilder-toe-
+  #               - Sub: '{AWS:Region}'
+  #               - -prod/*
+  #     RouteTableIds:
+  #       - '{{resolve:ssm:/covid19l3/publicroutetable:1}}'
+  #     ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+  #     VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
 
   bucketParameter:
     Type: AWS::SSM::Parameter
@@ -331,11 +160,9 @@ Resources:
       Value: !Ref s3Bucket
       Description: !Sub s3Bucket for covid19l3 ${gitHubBranch}
 
-####
 #
-#   EFS
+#  EFS
 #
-####
 
   FileSystemResource:
     Type: AWS::EFS::FileSystem
@@ -366,7 +193,7 @@ Resources:
       - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
 
   accessPointLambda:
-    Type: 'AWS::EFS::AccessPoint'
+    Type: AWS::EFS::AccessPoint
     Properties:
       FileSystemId: !Ref FileSystemResource
       PosixUser:
@@ -380,7 +207,7 @@ Resources:
         Path: "/efs/lambda"
 
   accessPointEC2:
-    Type: 'AWS::EFS::AccessPoint'
+    Type: AWS::EFS::AccessPoint
     Properties:
       FileSystemId: !Ref FileSystemResource
       PosixUser:
@@ -393,11 +220,9 @@ Resources:
           Permissions: "0755"
         Path: "/efs/ec2"
 
-####
-#
-#
-#
-####
+  #
+  # Autoscale Config
+  #
 
   autoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -674,7 +499,6 @@ Resources:
     DependsOn:
     - instanceProfile
     - sqsQueue
-    - covid19l3Image
     Properties:
       LaunchTemplateData:
         IamInstanceProfile:
@@ -682,8 +506,8 @@ Resources:
             Fn::GetAtt:
             - instanceProfile
             - Arn
-        ImageId:
-          Fn::GetAtt: [covid19l3Image, ImageId]
+        ImageId: 
+          !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/imageid:1}}'
         KeyName: 
           Ref: Ec2KeyName
         TagSpecifications:
@@ -797,3 +621,25 @@ Resources:
           - cloudFront
           - DomainName
       Description: !Sub Cloudfront Domain for covid19l3 ${gitHubBranch}
+
+  efsLambdaParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /covid19l3/${gitHubBranch}/efslambdaarn
+      Type: String
+      Value: 
+        Fn::GetAtt: 
+          - accessPointLambda
+          - Arn
+      Description: !Sub EFS accessPointLambda Arn ${gitHubBranch}
+
+  efsEc2Parameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /covid19l3/${gitHubBranch}/efsec2arn
+      Type: String
+      Value: 
+        Fn::GetAtt: 
+          - accessPointEC2
+          - Arn
+      Description: !Sub EFS accessPointEC2 Arn ${gitHubBranch}
