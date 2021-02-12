@@ -27,3 +27,4 @@ echo "Configuring s3Event"
 aws s3api put-bucket-notification-configuration --bucket ${BUCKET} --notification-configuration file://notification.s3
 rm notification.s3
 rm ../layers/*.zip
+rm out.yaml

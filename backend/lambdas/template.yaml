@@ -12,9 +12,9 @@ Globals:
   Function:
     AutoPublishAlias: live
     Handler: index.handler
-    MemorySize: 256
+    MemorySize: 512
     Runtime: python3.7
-    Timeout: 300
+    Timeout: 60
     Tracing: Active
 
 Resources:

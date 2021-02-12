@@ -218,8 +218,9 @@ export default {
 
           var jsonString= JSON.stringify(statusObj);
 
+          var statusFilename = f.file.name.toLowerCase().replace(".zip",".status");
           Storage.put(
-          f.file.name.toLowerCase() + ".status", jsonString,
+          statusFilename, jsonString,
           {
             level: "private",
             contentType: "application/json"

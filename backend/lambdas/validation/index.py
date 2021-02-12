@@ -81,6 +81,8 @@ def ziptest(filename):
 def handler(event, context):    
     try: 
         #logger.info(event)
+
+
         s3Key = urllib.parse.unquote(event["Records"][0]["s3"]["object"]["key"])
         bucket = urllib.parse.unquote(event["Records"][0]["s3"]["bucket"]["name"])
     

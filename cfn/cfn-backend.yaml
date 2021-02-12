@@ -120,37 +120,28 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt originAccessIdentity.S3CanonicalUserId
 
-  # s3Endpoint:
-  #   Type: 'AWS::EC2::VPCEndpoint'
-  #   Properties:
-  #     PolicyDocument:
-  #       Version: 2012-10-17
-  #       Statement:
-  #         - Effect: Allow
-  #           Principal: '*'
-  #           Action:
-  #             - 's3:GetObject'
-  #           Resource:
-  #           - Fn::Join:
-  #             - ''
-  #             - - 'arn:aws:s3:::'
-  #               - Ref: s3Bucket
-  #               - /*
-  #           - Fn::Join:
-  #             - ''
-  #             - - 'arn:aws:s3:::'
-  #               - Ref: ImageBuilderLogBucket
-  #               - /*
-  #           - Fn::Join:
-  #             - ''
-  #             - - 'arn:aws:s3:::'
-  #               - Ref: ec2imagebuilder-toe-
-  #               - Sub: '{AWS:Region}'
-  #               - -prod/*
-  #     RouteTableIds:
-  #       - '{{resolve:ssm:/covid19l3/publicroutetable:1}}'
-  #     ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
-  #     VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
+  s3Endpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: s3Bucket
+                - /*
+
+      RouteTableIds:
+        - '{{resolve:ssm:/covid19l3/publicroutetable:1}}'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: '{{resolve:ssm:/covid19l3/vpc:1}}'
 
   bucketParameter:
     Type: AWS::SSM::Parameter
