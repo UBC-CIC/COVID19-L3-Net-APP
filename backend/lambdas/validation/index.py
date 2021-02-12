@@ -20,7 +20,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def setStatusMsg(statusFile, s3bucket, key, msg, code):
-    logger.info("---- setStatusMsg")
+    logger.info("---- setStatusMsg: " + s3bucket + " - " + key + " - " +  statusFile)
     s3_client.download_file(s3bucket, key, statusFile)
 
     with open(statusFile, 'r') as f:
@@ -81,8 +81,6 @@ def ziptest(filename):
 def handler(event, context):    
     try: 
         #logger.info(event)
-
-
         s3Key = urllib.parse.unquote(event["Records"][0]["s3"]["object"]["key"])
         bucket = urllib.parse.unquote(event["Records"][0]["s3"]["bucket"]["name"])
     
@@ -92,13 +90,14 @@ def handler(event, context):
             logger.error("something went wrong")
             return False
     
-        statusFile = '/mnt/tmp/' + s3Key.split(":")[1]
-        zipFile = statusFile.replace("status","zip")
+        statusKey = s3Key.replace("zip","status")
+        zipFile = '/mnt/tmp/' + s3Key.split(":")[1]
+        statusFile = zipFile.replace("zip","status")
         print("statusFile: " + statusFile)
         print("zipFile: " + zipFile)
         print("bucket: " + bucket)
 
-        userDir=os.path.join('/mnt/lambda', s3Key.split(":")[1].split("/")[0])
+        userDir=os.path.join('/mnt/tmp', s3Key.split(":")[1].split("/")[0])
         print("UserDir: " + userDir)
         if (not os.path.isdir(userDir)):
             os.mkdir(userDir)
@@ -111,15 +110,15 @@ def handler(event, context):
         os.remove(statusFile)
         
         if ("error" in rst.lower()):
-            setStatusMsg(statusFile, bucket, s3Key + '.status', rst, 3)
+            setStatusMsg(statusFile, bucket, statusKey, rst, 3)
             return False
         else:
             sendSqsMessage(event)
-            setStatusMsg(statusFile, bucket, s3Key + '.status', 'Sent to the queue', 0)
+            setStatusMsg(statusFile, bucket, statusKey, 'Sent to the queue', 0)
             return True
     
     except Exception as e:
-        setStatusMsg(statusFile, bucket, s3Key + '.status', str(e), 3)
+        setStatusMsg(statusFile, bucket, statusKey, str(e), 3)
         os.remove(zipFile)
         os.remove(statusFile)
         logger.error(str(e))

@@ -204,7 +204,9 @@ export default {
         const reader = new FileReader();
         var vm = this;
 
-        reader.onload = function(event) {      
+        reader.onload = function(event) {   
+          
+          //Saving .status
           var statusObj = {};          
           statusObj.cloudfrontUrl = "";
           statusObj.versions = []       
@@ -221,12 +223,13 @@ export default {
           var statusFilename = f.file.name.toLowerCase().replace(".zip",".status");
           Storage.put(
           statusFilename, jsonString,
-          {
-            level: "private",
-            contentType: "application/json"
-          }
-        ).catch(error => console.log(error));
-      
+            {
+              level: "private",
+              contentType: "application/json"
+            }
+          ).catch(error => console.log(error));
+          
+          //Saving ZIP file      
           var contents = event.target.result;
           Storage.put(f.file.name.toLowerCase(), contents, {
             level: "private",
@@ -248,6 +251,8 @@ export default {
             })
             .catch(err => console.log(err));
         };
+
+          
 
         reader.onerror = function(event) {
           console.error(

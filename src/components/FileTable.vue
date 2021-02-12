@@ -8,7 +8,6 @@
       :columns="columns"
       row-key="filename"
       virtual-scroll
-      :pagination.sync="pagination"
       :rows-per-page-options="[0]"
       :visible-columns="visibleColumns"
     >
@@ -168,7 +167,7 @@ export default {
 
   methods: {
     async mlview(fileuuid, filename) {
-      let status = await this.getFileStatus(filename + ".status");
+      let status = await this.getFileStatus(filename.replace(".zip",".status"));
       var url = status["cloudfrontUrl"] + "/html/" + fileuuid + "/index.html";
       //var win = window.open(url, '_blank');
       var win = window.open(url, "_self");
@@ -178,15 +177,14 @@ export default {
       try {
         this.data = [];
         let listFiles = await this.listStorageFiles();
-        console.log(listFiles);
         for (let i = 0; i < listFiles.length; ++i) {          
           if (listFiles[i].key) {
-            let filename = listFiles[i].key;
-            console.log(filename);
+            let filename = listFiles[i].key;            
             if (
               filename.substring(filename.length - 3, filename.length) == "zip"
             ) {
-              let status = await this.getFileStatus(filename + ".status");
+              var filestatus = filename.replace(".zip",".status");               
+              let status = await this.getFileStatus(filestatus);
               let v1 = {};
               let v2 = {};
               v1.code=99;
@@ -196,17 +194,14 @@ export default {
               if (status.versions) {
                 for (var j = 0; j < status.versions.length; j++) {
                   if (status.versions[j].version == "v1") {
-                    console.log("catch v1");
                     v1.code = status.versions[j].code;
                     v1.msg = status.versions[j].msg;
                   } else if ( status.versions[j].version == "v2") {
-                    console.log("catch v2");
                     v2.code = status.versions[j].code;
                     v2.msg = status.versions[j].msg;
                   }
                 }
               }
-              console.log("sai");
               let uploadAt = this.$moment(listFiles[i].lastModified).format(
                 "DD MMM HH:mm"
               );
@@ -217,7 +212,6 @@ export default {
                 this.$moment
                   .utc(listFiles[i].lastModified)
                   .format("YYYYMMDDHHmm");
-              console.log(v2);
               this.data.push({
                 key: filename,
                 v1: v1,
@@ -235,14 +229,14 @@ export default {
       }
     },
 
-    async getFileStatus(filename) {
-      const statusUrl = await this.getFileStatusUrl(filename);
+    async getFileStatus(statusfile) {
+      const statusUrl = await this.getFileStatusUrl(statusfile);
       const status = await this.readFileStatus(statusUrl);
       return status;
     },
 
-    getFileStatusUrl(filename) {
-      return Storage.get(filename, {
+    getFileStatusUrl(statusfile) {
+      return Storage.get(statusfile, {
         level: "private",
         contentType: "application/json",
       });
