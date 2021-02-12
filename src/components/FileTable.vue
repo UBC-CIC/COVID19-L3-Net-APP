@@ -175,56 +175,61 @@ export default {
       win.focus();
     },
     async mountFilesTable() {
-      this.data = [];
-      let listFiles = await this.listStorageFiles();
-      for (let i = 0; i < listFiles.length; ++i) {
-        if (listFiles[i].key) {
-          let filename = listFiles[i].key;
-          if (
-            filename.substring(filename.length - 3, filename.length) == "zip"
-          ) {
-            let status = await this.getFileStatus(filename + ".status");
-            let v1 = {};
-            let v2 = {};
-            v1.code=99;
-            v2.code=99;
-            v1.msg="not submitted"
-            v2.msg="not submitted"
-            if (status.versions) {
-              for (var j = 0; j < status.versions.length; j++) {
-                if (status.versions[j].version == "v1") {
-                  console.log("catch v1");
-                  v1.code = status.versions[j].code;
-                  v1.msg = status.versions[j].msg;
-                } else if ( status.versions[j].version == "v2") {
-                  console.log("catch v2");
-                  v2.code = status.versions[j].code;
-                  v2.msg = status.versions[j].msg;
+      try {
+        this.data = [];
+        let listFiles = await this.listStorageFiles();
+        for (let i = 0; i < listFiles.length; ++i) {
+          if (listFiles[i].key) {
+            let filename = listFiles[i].key;
+            if (
+              filename.substring(filename.length - 3, filename.length) == "zip"
+            ) {
+              let status = await this.getFileStatus(filename + ".status");
+              let v1 = {};
+              let v2 = {};
+              v1.code=99;
+              v2.code=99;
+              v1.msg="not submitted"
+              v2.msg="not submitted"
+              if (status.versions) {
+                for (var j = 0; j < status.versions.length; j++) {
+                  if (status.versions[j].version == "v1") {
+                    console.log("catch v1");
+                    v1.code = status.versions[j].code;
+                    v1.msg = status.versions[j].msg;
+                  } else if ( status.versions[j].version == "v2") {
+                    console.log("catch v2");
+                    v2.code = status.versions[j].code;
+                    v2.msg = status.versions[j].msg;
+                  }
                 }
               }
+              console.log("sai");
+              let uploadAt = this.$moment(listFiles[i].lastModified).format(
+                "DD MMM HH:mm"
+              );
+              let size = prettySize(listFiles[i].size);
+              let fileuuid =
+                filename.substring(0, filename.length - 4) +
+                "-" +
+                this.$moment
+                  .utc(listFiles[i].lastModified)
+                  .format("YYYYMMDDHHmm");
+              console.log(v2);
+              this.data.push({
+                key: filename,
+                v1: v1,
+                v2: v2,
+                size: size,
+                date: uploadAt,
+                fileuuid: fileuuid,
+              });
             }
-            console.log("sai");
-            let uploadAt = this.$moment(listFiles[i].lastModified).format(
-              "DD MMM HH:mm"
-            );
-            let size = prettySize(listFiles[i].size);
-            let fileuuid =
-              filename.substring(0, filename.length - 4) +
-              "-" +
-              this.$moment
-                .utc(listFiles[i].lastModified)
-                .format("YYYYMMDDHHmm");
-            console.log(v2);
-            this.data.push({
-              key: filename,
-              v1: v1,
-              v2: v2,
-              size: size,
-              date: uploadAt,
-              fileuuid: fileuuid,
-            });
           }
         }
+      } 
+      catch(error) {
+        console.log('error mountFilesTable: ', error);
       }
     },
 
