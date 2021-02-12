@@ -178,7 +178,7 @@ export default {
       try {
         this.data = [];
         let listFiles = await this.listStorageFiles();
-        for (let i = 0; i < listFiles.length; ++i) {
+        for (let i = 0; i < listFiles.length; ++i) {          
           if (listFiles[i].key) {
             let filename = listFiles[i].key;
             if (
@@ -254,8 +254,10 @@ export default {
       }).then((response) => response.data);
     },
 
-    listStorageFiles() {
-      return Storage.list("", { level: "private" });
+    listStorageFiles() {      
+      return Storage.list(
+        "", { level: "private" }
+        ).catch((err) => console.log(err));
     },
 
     deleteFile(fileName) {
