@@ -11,22 +11,38 @@ import random
 import string
 import shutil
 
-queueUrl = os.getenv('queueUrl')
+sqsEndpoint = "https://" + os.getenv('sqsEndpoint').split(":")[1]
+queueUrl = sqsEndpoint + "/" + os.getenv('queueName')
 
 s3_client = boto3.client('s3')
-sqs = boto3.client('sqs')
+session = boto3.session.Session()
+
+sqs = session.client(
+    service_name="sqs", 
+    endpoint_url=sqsEndpoint
+    )
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
+def removeTempfiles(zipFile,statusFile):
+    if os.path.isfile(zipFile):
+            os.remove(zipFile)
+            
+    if os.path.isfile(statusFile):
+        os.remove(statusFile)
+        
+
 def setStatusMsg(statusFile, s3bucket, key, msg, code):
-    logger.info("---- setStatusMsg: " + s3bucket + " - " + key + " - " +  statusFile)
+    logger.info("---- setStatusMsg: " + str(code) + " - " + msg)
     s3_client.download_file(s3bucket, key, statusFile)
 
-    with open(statusFile, 'r') as f:
+    with open(statusFile, 'r') as f:        
         data = json.load(f)
-        data['code'] = str(code)
-        data['msg'] = msg
+        for ver in data['versions']:
+            ver['code'] = str(code)
+            ver['msg'] = msg
 
     os.remove(statusFile)
     with open(statusFile, 'w') as f:
@@ -84,8 +100,6 @@ def handler(event, context):
         s3Key = urllib.parse.unquote(event["Records"][0]["s3"]["object"]["key"])
         bucket = urllib.parse.unquote(event["Records"][0]["s3"]["bucket"]["name"])
     
-        print("S3 Key: " + s3Key)
-    
         if len(s3Key) < 2:
             logger.error("something went wrong")
             return False
@@ -93,33 +107,33 @@ def handler(event, context):
         statusKey = s3Key.replace("zip","status")
         zipFile = '/mnt/tmp/' + s3Key.split(":")[1]
         statusFile = zipFile.replace("zip","status")
-        print("statusFile: " + statusFile)
-        print("zipFile: " + zipFile)
-        print("bucket: " + bucket)
+        print("bucket    : " + bucket)
+        print("S3 Key    : " + s3Key)
+        print("Status Key: " + statusKey)
+        print("zipFile   : " + zipFile)
+        print("statusFile: " + statusFile)        
 
         userDir=os.path.join('/mnt/tmp', s3Key.split(":")[1].split("/")[0])
-        print("UserDir: " + userDir)
+        print("UserDir   : " + userDir)
         if (not os.path.isdir(userDir)):
             os.mkdir(userDir)
     
         s3_client.download_file(bucket, s3Key, zipFile)
     
         rst = ziptest(zipFile)
-    
-        os.remove(zipFile)
-        os.remove(statusFile)
         
         if ("error" in rst.lower()):
             setStatusMsg(statusFile, bucket, statusKey, rst, 3)
+            removeTempfiles(zipFile,statusFile)
             return False
         else:
             sendSqsMessage(event)
             setStatusMsg(statusFile, bucket, statusKey, 'Sent to the queue', 0)
+            removeTempfiles(zipFile,statusFile)
             return True
     
     except Exception as e:
         setStatusMsg(statusFile, bucket, statusKey, str(e), 3)
-        os.remove(zipFile)
-        os.remove(statusFile)
+        removeTempfiles(zipFile,statusFile)
         logger.error(str(e))
         return False

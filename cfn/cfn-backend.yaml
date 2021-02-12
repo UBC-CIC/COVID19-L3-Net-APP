@@ -587,6 +587,15 @@ Resources:
         !Ref sqsQueue
       Description: !Sub SQS Queue Url for covid19l3 ${gitHubBranch}
 
+  sqsvpceParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /covid19l3/${gitHubBranch}/sqsvpce
+      Type: String
+      Value: 
+        !Select [ 0 , !GetAtt sqsEndpoint.DnsEntries ] 
+      Description: !Sub SQS Queue Url for covid19l3 ${gitHubBranch}
+
   cloudfrontParameter:
     Type: AWS::SSM::Parameter
     Properties:

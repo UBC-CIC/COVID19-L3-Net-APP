@@ -53,17 +53,12 @@ Resources:
           LocalMountPath: /mnt/tmp
       Environment:
         Variables:
+          sqsEndpoint:
+            !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsvpce:1}}'
           Bucket:
             !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
-          queueUrl: 
-              !Join
-                - ''
-                - - 'https://sqs.'
-                  - !Sub '${AWS::Region}'
-                  - '.amazonaws.com/'
-                  - !Sub '${AWS::AccountId}'
-                  - '/'
-                  - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
+          queueName: 
+            !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
 
   LambdaInvokePermission:
     Type: 'AWS::Lambda::Permission'
