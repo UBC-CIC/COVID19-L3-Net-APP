@@ -1,7 +1,7 @@
 <template>
   <div class="q-pa-md row items-start q-gutter-md">
     <div class="row">
-      <div class="col-4">
+      <div class="col-8">
         <q-card class="upload-card">
           <q-card-section class="ubc-color">
             <div class="text-h6">Upload CT Scans</div>
@@ -81,8 +81,9 @@
           <q-card-section><span class="text-body1">After all the files have been successfully uploaded you can move to the next step</span></q-card-section>
         </q-card>
       </div>
-      <div class="col-1"></div>
-      <div class="col-7">
+      </div>
+      
+      <div class="row">
         <q-card class="my-card">
           <q-item class="ubc-color"> 
             <q-item-section>
@@ -117,7 +118,6 @@
           </q-card-actions>           
         </q-card>
       </div>
-    </div>
   </div>
 </template>
 

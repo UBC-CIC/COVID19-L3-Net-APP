@@ -44,7 +44,9 @@ def setStatusMsg(statusFile, s3bucket, key, msg, code):
             ver['code'] = str(code)
             ver['msg'] = msg
 
-    os.remove(statusFile)
+    if os.path.isfile(statusFile):
+        os.remove(statusFile)
+        
     with open(statusFile, 'w') as f:
         json.dump(data, f, indent=4)
     

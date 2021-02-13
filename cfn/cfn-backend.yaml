@@ -486,6 +486,8 @@ Resources:
           !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/imageid:1}}'
         KeyName: 
           Ref: Ec2KeyName
+        SecurityGroupIds:
+          - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -499,10 +501,10 @@ Resources:
                 #!/bin/bash -xe
                 alias cp="cp -f"
                 yum -y --security update
-                yum -y update aws-cli                
-                EPHDEV=$(sudo lsblk --list | grep disk | awk '{print $1}' | while read -r line; do sudo file -s /dev/$line | awk '{if ($2 == "data") {print substr($1,1,length($1)-1)}}' ; done)
+                yum -y update aws-cli     
+                yum -y install amazon-efs-utils                           
                 #echo -------------- EFS Mount --------------
-                sudo mount -t efs ${accesspoint}:/ mnt
+                sudo mount -t efs ${accesspoint}:/ /mnt
                 aws configure set default.region ${awsRegion}
                 systemctl status amazon-ssm-agent
                 echo -------------- Git checkout and pull  --------------
@@ -526,7 +528,7 @@ Resources:
               - gitBranch: !Ref gitHubBranch
                 gitHub: !Ref gitHubRepo
                 awsRegion: !Sub '${AWS::Region}'
-                accesspoint: !Ref accessPointEC2
+                accesspoint: !GetAtt accessPointEC2.AccessPointId
                   
   sqsQueue:
     Type: AWS::SQS::Queue

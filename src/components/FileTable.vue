@@ -1,17 +1,27 @@
 <template>
   <div class="q-pa-md">
     <q-table
-      flat
-      bordered
-      class="statement-table"
+      flat      
       :data="data"
       :columns="columns"
-      row-key="filename"
+      row-key="fileuuid"
       virtual-scroll
       :rows-per-page-options="[0]"
       :visible-columns="visibleColumns"
+      :selected-rows-label="getSelected"
+      selection="multiple"
+      :selected.sync="selected"
     >
-      <template v-slot:body-cell-actions="props">
+      <template v-slot:top>
+        <q-btn round color="deep-orange" icon="delete_outlined" @click="removeRows" />
+        <q-space />
+        <q-input borderless dense debounce="300" color="primary" v-model="filter">
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+      </template>
+      <!-- <template v-slot:body-cell-actions="props">
         <q-td :props="props">
           <q-btn
             dense
@@ -22,7 +32,7 @@
             icon="delete_outlined"
           ></q-btn>
         </q-td>
-      </template>
+      </template> -->
 
       <template v-slot:body-cell-v1="props">
         <q-td :props="props">
@@ -115,6 +125,7 @@ export default {
   name: "Home",
   data() {
     return {
+      selected: [],
       visibleColumns: ["filename", "size", "date", "actions", "v1", "v2"],
       columns: [
         {
@@ -123,10 +134,7 @@ export default {
           label: "File Name",
           align: "left",
           field: "key",
-          sortable: true,
-          classes: "bg-grey-2 ellipsis",
-          style: "max-width: 100px",
-          headerClasses: "bg-dark text-white",
+          sortable: true
         }, //key: filename, status: status, btn: btn, size: size, uploadat: uploadAt, code: code
         {
           name: "size",
@@ -145,7 +153,7 @@ export default {
         { name: "fileuuid", field: "fileuuid" },
         { name: "v1", label: "v1", field: "v1", align: "center" },
         { name: "v2", label: "v2", field: "v2", align: "center" },
-        { name: "actions", label: "Actions", field: "", align: "center" },
+        //{ name: "actions", label: "Actions", field: "", align: "center" },
       ],
       data: [],
       listFiles: {},
@@ -166,6 +174,9 @@ export default {
   },
 
   methods: {
+    getSelected () {
+      return this.selected.length === 0 ? '' : `${this.selected.length} record${this.selected.length > 1 ? 's' : ''} selected of ${this.data.length}`
+    },
     async mlview(fileuuid, filename) {
       let status = await this.getFileStatus(filename.replace(".zip",".status"));
       var url = status["cloudfrontUrl"] + "/html/" + fileuuid + "/index.html";
