@@ -123,10 +123,14 @@ start_model() {
 }
 
 # Initializing Variables
+GITBRANCH=%BRANCH%
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -d . -f 2)"
-CLOUDFRONT="https://$(aws ssm get-parameter --name "/covid19l3/cloudfrontdomain" --query Parameter.Value --output text)"
-SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/sqsurl" --query Parameter.Value --output text)
+CLOUDFRONT="https://$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/cloudfrontdomain" --query Parameter.Value --output text)"
+SQSVPCE=$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/sqsvpce" --query Parameter.Value --output text)
+SQSURL=$(echo $SQSVPCE | cut -d':' -f2)
+SQSNAME=$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/sqsname" --query Parameter.Value --output text)
+SQSQUEUE="https://$SQSURL/$SQSNAME"
 WORKING_DIR=/root/covid-19-app/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
 

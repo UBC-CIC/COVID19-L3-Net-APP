@@ -520,6 +520,7 @@ Resources:
                 cp /root/covid-19-app/backend/sqs-ec2/spot-instance-interruption-notice-handler.service /etc/systemd/system/spot-instance-interruption-notice-handler.service
                 cp /root/covid-19-app/backend/sqs-ec2/worker.service /etc/systemd/system/worker.service
                 cp /root/covid-19-app/backend/sqs-ec2/spot-instance-interruption-notice-handler.sh /usr/local/bin/
+                sed -i "s|%BRANCH%|${gitBranch}|g" /root/covid-19-app/backend/sqs-ec2/worker.sh
                 cp /root/covid-19-app/backend/sqs-ec2/worker.sh /usr/local/bin
                 chmod +x /usr/local/bin/spot-instance-interruption-notice-handler.sh
                 chmod +x /usr/local/bin/worker.sh                          
@@ -528,7 +529,7 @@ Resources:
               - gitBranch: !Ref gitHubBranch
                 gitHub: !Ref gitHubRepo
                 awsRegion: !Sub '${AWS::Region}'
-                accesspoint: !GetAtt accessPointEC2.AccessPointId
+                accesspoint: !Ref FileSystemResource
                   
   sqsQueue:
     Type: AWS::SQS::Queue
