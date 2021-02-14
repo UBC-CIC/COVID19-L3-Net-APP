@@ -199,10 +199,10 @@ while :;do
     do        
         start_model $VERSION
         if [ -f $LOCALZIPFILE ]; then
-        else 
           update_status "3" "zip file not found" $VERSION
           exit
         fi 
+        
         if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/$VERSION/sapiencovid_demo.js)" ]; then
           logger "$0: Copying sapien/$VERSION plugin files to S3"
           aws s3 cp --quiet --recursive $WORKING_DIR/sapien/$VERSION/ s3://$S3BUCKET/public/sapien/$VERSION/
