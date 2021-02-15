@@ -17,10 +17,10 @@ update_status () {
   MSG=$2
   VER=$3
 
-  jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' /mnt/$RANDOM_STRING/${FNAME}.status > /mnt/$RANDOM_STRING/${FNAME}.status.tmp
-  rm /mnt/$RANDOM_STRING/${FNAME}.status
-  mv /mnt/$RANDOM_STRING/${FNAME}.status.tmp /mnt/$RANDOM_STRING/${FNAME}.status
-  aws s3 cp /mnt/$RANDOM_STRING/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
+  jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status > /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status.tmp
+  rm /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status
+  mv /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status.tmp /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status
+  aws s3 cp /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
   logger "$0:----> Status changed to $MSG"
 }
 
@@ -37,36 +37,36 @@ process_file() {
 
     # Unzipping the dcm files
     logger "$0:----> Unzipping DCM files"
-    mkdir -p /mnt/$RANDOM_STRING/dcm
-    unzip -j -q $LOCALZIPFILE -d /mnt/$RANDOM_STRING/dcm
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
+    unzip -j -q $LOCALZIPFILE -d /mnt/efs/ec2/$RANDOM_STRING/dcm
     # Preping DCM files to be sent to the model (making sure they are under a folder)
-    zip -r /mnt/$RANDOM_STRING-dcm.zip /mnt/$RANDOM_STRING/dcm/*
+    zip -r /mnt/efs/ec2/$RANDOM_STRING-dcm.zip /mnt/efs/ec2/$RANDOM_STRING/dcm/*
 
     logger "$0: Start model processing"
     # Submitting file to the model
     echo 
-    curl -X POST -F "input_file=@/mnt/$RANDOM_STRING-dcm.zip" http://localhost:$HOSTPORT/predict/?format=png -o /mnt/$RANDOM_STRING/png/$VER.zip
+    curl -X POST -F "input_file=@/mnt/efs/ec2/$RANDOM_STRING-dcm.zip" http://localhost:$HOSTPORT/predict/?format=png -o /mnt/efs/ec2/$RANDOM_STRING/png/$VER.zip
     logger "$0: END model processing"
 
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
-    mkdir -p /mnt/$RANDOM_STRING/png/$VER
-    unzip -j -q /mnt/$RANDOM_STRING/png.zip -d /mnt/$RANDOM_STRING/png/$VER
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/png/$VER
+    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/png.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
 
     # Preping the data for the JSON File
     STATS=""
-    for file in /mnt/$RANDOM_STRING/dcm/*.dcm; do
-      echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/$RANDOM_STRING/dcms-files.txt
+    for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
+      echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
     done
-    DCMS=$(wc -l /mnt/$RANDOM_STRING/dcms-count.txt)
+    DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt)
     echo $DCMS 
-    for file in /mnt/$RANDOM_STRING/png/$VER/*.png; do
-      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/$RANDOM_STRING/pngs-$VER-files.txt
+    for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.png; do
+      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt
     done
-    PNGS=$(wc -l /mnt/$RANDOM_STRING/pngs-count.txt)
+    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-count.txt)
     echo $PNGS
-    for file in /mnt/$RANDOM_STRING/png/$VER/*.json; do
+    for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.json; do
       #Should only be 1 JSON file, so just take the last one.
       STATS="\"${CLOUDFRONT}/png/$VER/$(basename $file)\",\n"
     done
@@ -74,25 +74,25 @@ process_file() {
 
     # Copying to the public bucket
     logger "$0:----> Moving DCM and PNG files to S3"
-    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/dcm s3://$S3BUCKET/public/dcm/$RANDOM_STRING/
-    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/png/$VER s3://$S3BUCKET/public/png/$VER/$RANDOM_STRING/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/dcm s3://$S3BUCKET/public/dcm/$RANDOM_STRING/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/png/$VER s3://$S3BUCKET/public/png/$VER/$RANDOM_STRING/
   
     # html and data.js file
     logger "$0:----> Preping index.html and data.js"
-    mkdir -p /mnt/$RANDOM_STRING/html/$VER
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/html/$VER
 
     DATAJS=${CLOUDFRONT}/html/$VER/$RANDOM_STRING/data.js
 
-    cp $WORKING_DIR/sapien/$VER/index.html /mnt/$RANDOM_STRING/html/$VER
-    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/$RANDOM_STRING/html/$VER/index.html
-    sed -i "s|DATAJS|${DATAJS}|g" /mnt/$RANDOM_STRING/html/$VER/index.html
+    cp $WORKING_DIR/sapien/$VER/index.html /mnt/efs/ec2/$RANDOM_STRING/html/$VER
+    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/index.html
+    sed -i "s|DATAJS|${DATAJS}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/index.html
 
-    cp $WORKING_DIR/sapien/$VER/data.js /mnt/$RANDOM_STRING/html/$VER
-    sed -i -e "/%DICOM_FILES%/{r /mnt/$RANDOM_STRING/dcms-files.txt" -e "d}" /mnt/$RANDOM_STRING/html/$VER/data.js
-    sed -i -e "/%PNG_FILES%/{r /mnt/$RANDOM_STRING/pngs-$VER-files.txt" -e "d}" /mnt/$RANDOM_STRING/html/$VER/data.js
-    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/$RANDOM_STRING/html/$VER/data.js
+    cp $WORKING_DIR/sapien/$VER/data.js /mnt/efs/ec2/$RANDOM_STRING/html/$VER
+    sed -i -e "/%DICOM_FILES%/{r /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt" -e "d}" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
+    sed -i -e "/%PNG_FILES%/{r /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt" -e "d}" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
+    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
 
-    aws s3 cp --quiet --recursive /mnt/$RANDOM_STRING/html/$VER s3://$S3BUCKET/public/html/$VER/$RANDOM_STRING/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/html/$VER s3://$S3BUCKET/public/html/$VER/$RANDOM_STRING/
 
     # Updating status
     update_status "2" Ready $VER 
@@ -178,11 +178,12 @@ while :;do
 
   S3KEY_NO_SUFFIX=$(echo $S3KEY | rev | cut -f2 -d"." | rev)
   FNAME=$(basename $S3KEY)
-  FNAME_NO_SUFFIX="$(basename $S3KEY .status)"
+  FNAME_NO_SUFFIX="$(basename $S3KEY .zip)"
   FEXT=$(echo $S3KEY | rev | cut -f1 -d"." | rev)
 
   if [ "$FEXT" == "zip" ]; then
 
+    #FNAME=patient-a.zip, FNAME_NO_SUFFIX=patient-a.zip, FEXT=zip, S3KEY_NO_SUFFIX=private/us-west-2:5b1169cf-10f3-4b96-9374-64b50110ec13/patient-a
     logger "$0: Found work. Details: FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
     logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in"
@@ -191,14 +192,15 @@ while :;do
     # Format 2020-07-23 14:01:19 to 202007231401
     # FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
     RANDOM_STRING=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-10} | head -n 1)
+    logger "$0: RANDOM_STRING: $RANDOM_STRING"
 
-    mkdir -p /mnt/$RANDOM_STRING
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX.status
-    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip /mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip
+    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status
+    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip
 
-    LOCALZIPFILE="/mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
-    LOCALSTATUSFILE="/mnt/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"   
+    LOCALZIPFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
+    LOCALSTATUSFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"   
       
     for VERSION in $(cat $LOCALSTATUSFILE | jq -r '.versions[].version')
     do        
@@ -221,7 +223,7 @@ while :;do
 
     done
 
-    rm -rf /mnt/$RANDOM_STRING
+    rm -rf /mnt/efs/ec2/$RANDOM_STRING
     
     logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
     aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
