@@ -25,6 +25,8 @@ update_status () {
 }
 
 process_file() {
+    logger "$0:----> process_file $1"
+
     VER=$1
     HOSTPORT="8$(echo $VER | sed 's/[^0-9]*//g')"
 
@@ -98,6 +100,7 @@ process_file() {
 }
 
 start_model() {
+  logger "$0:----> start_model $1"
   TAG=$1
   HOSTPORT="8$(echo $TAG | sed 's/[^0-9]*//g')"
   CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
@@ -176,7 +179,7 @@ while :;do
   FNAME_NO_SUFFIX="$(basename $S3KEY .status)"
   FEXT=$(echo $S3KEY | rev | cut -f1 -d"." | rev)
 
-  if [ "$FEXT" = "status" ]; then
+  if [ "$FEXT" == "status" ]; then
 
     logger "$0: Found work. Details: S3KEY=$S3KEY, FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
@@ -202,7 +205,7 @@ while :;do
           update_status "3" "zip file not found" $VERSION
           exit
         fi 
-        
+
         if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/$VERSION/sapiencovid_demo.js)" ]; then
           logger "$0: Copying sapien/$VERSION plugin files to S3"
           aws s3 cp --quiet --recursive $WORKING_DIR/sapien/$VERSION/ s3://$S3BUCKET/public/sapien/$VERSION/
