@@ -181,7 +181,7 @@ while :;do
   FNAME_NO_SUFFIX="$(basename $S3KEY .status)"
   FEXT=$(echo $S3KEY | rev | cut -f1 -d"." | rev)
 
-  if [ "$FEXT" == "status" ]; then
+  if [ "$FEXT" == "zip" ]; then
 
     logger "$0: Found work. Details: FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
