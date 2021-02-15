@@ -17,11 +17,15 @@ update_status () {
   MSG=$2
   VER=$3
 
-  jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status > /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status.tmp
-  rm /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status
-  mv /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status.tmp /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status
-  aws s3 cp /mnt/efs/ec2/$RANDOM_STRING/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
-  logger "$0:----> Status changed to $MSG"
+  jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
+    '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
+    $LOCALSTATUSFILE > \
+    $LOCALSTATUSFILE.tmp
+
+  rm $LOCALSTATUSFILE
+  mv $LOCALSTATUSFILE.tmp $LOCALSTATUSFILE
+  aws s3 cp $LOCALSTATUSFILE s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status
+  logger "$0:----> Status changed to CODE $CODE and MSG $MSG"
 }
 
 process_file() {
@@ -117,6 +121,7 @@ start_model() {
       logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
       docker logs $CONTAINERID 2>&1 | grep "ERROR"
       RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+      echo $RESULT
       if [[ $RESULT -eq 1 ]]; then
         logger "$0:docker is up!"
         break
