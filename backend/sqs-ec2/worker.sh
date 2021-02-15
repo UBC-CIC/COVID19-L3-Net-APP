@@ -168,11 +168,13 @@ while :;do
 
   fi
 
-  logger "$0: Found $MESSAGES messages in $SQSQUEUE. Details: JSON=$JSON, RECEIPT=$RECEIPT, BODY=$BODY"
+  logger "$0: Found $MESSAGES messages in $SQSQUEUE"
 
   S3BUCKET=$(echo "$BODY" | jq -r '.Records[0] | .s3.bucket.name')
   INPUT=$(echo "$BODY" | jq -r '.Records[0] | .s3.object.key')
   S3KEY=$(urldecode $INPUT | tr '[:upper:]' '[:lower:]')
+
+  logger "$0: S3KEY=$S3KEY"
 
   S3KEY_NO_SUFFIX=$(echo $S3KEY | rev | cut -f2 -d"." | rev)
   FNAME=$(basename $S3KEY)
@@ -181,7 +183,7 @@ while :;do
 
   if [ "$FEXT" == "status" ]; then
 
-    logger "$0: Found work. Details: S3KEY=$S3KEY, FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
+    logger "$0: Found work. Details: FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
     logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in"
     aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in
