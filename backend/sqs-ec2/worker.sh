@@ -196,7 +196,7 @@ while :;do
 
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status
+    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status
     aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip
 
     LOCALZIPFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
@@ -226,8 +226,8 @@ while :;do
 
     #rm -rf /mnt/efs/ec2/$RANDOM_STRING
     
-    #logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
-    #aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
+    logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
+    aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
     logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in"
     aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in
     sleep 5
