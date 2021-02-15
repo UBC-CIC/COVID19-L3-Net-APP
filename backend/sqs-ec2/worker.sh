@@ -13,6 +13,7 @@ urlencode() {
 }
 
 update_status () {
+  logger "$0:----> update_status $1"
   CODE=$1
   MSG=$2
   VER=$3
@@ -114,14 +115,14 @@ start_model() {
   fi
   logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
   CONTAINERID="$(docker run --runtime nvidia -p $HOSTPORT:80 --network 'host' -d --restart always covid-19-api:$TAG)"
-  logger "$0:-------------- Done --------------"
+  logger "$0:-------------- Container started --------------"
   ATTEMPT=0
   while [ $ATTEMPT -le 8 ]; do
       ATTEMPT=$(( $ATTEMPT + 1 ))
       logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
       docker logs $CONTAINERID 2>&1 | grep "ERROR"
       RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
-      echo $RESULT
+      echo $(docker logs $CONTAINERID)
       if [[ $RESULT -eq 1 ]]; then
         logger "$0:docker is up!"
         break
@@ -206,12 +207,13 @@ while :;do
 
     LOCALZIPFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
     LOCALSTATUSFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"  
+    logger "$0: LOCALZIPFILE: $LOCALZIPFILE" 
     logger "$0: LOCALSTATUSFILE: $LOCALSTATUSFILE" 
       
     for VERSION in $(cat $LOCALSTATUSFILE | jq -r '.versions[].version')
     do        
         start_model $VERSION
-        if [ -f $LOCALZIPFILE ]; then
+        if [ -f "$LOCALZIPFILE" ]; then
           update_status "3" "zip file not found" $VERSION
           exit
         fi 
