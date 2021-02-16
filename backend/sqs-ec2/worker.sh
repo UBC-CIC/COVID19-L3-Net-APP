@@ -20,12 +20,12 @@ update_status () {
 
   jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
     '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
-    $LOCALSTATUSFILE > \
-    $LOCALSTATUSFILE.tmp
+    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status" > \
+    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
 
-  rm $LOCALSTATUSFILE
-  mv $LOCALSTATUSFILE.tmp $LOCALSTATUSFILE
-  aws s3 cp $LOCALSTATUSFILE s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status
+  rm "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+  mv "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp" "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+  aws s3 cp /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status
   logger "$0:----> Status changed to CODE $CODE and MSG $MSG"
 }
 
@@ -43,7 +43,7 @@ process_file() {
     # Unzipping the dcm files
     logger "$0:----> Unzipping DCM files"
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
-    unzip -j -q $LOCALZIPFILE -d /mnt/efs/ec2/$RANDOM_STRING/dcm
+    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
     # Preping DCM files to be sent to the model (making sure they are under a folder)
     zip -r /mnt/efs/ec2/$RANDOM_STRING-dcm.zip /mnt/efs/ec2/$RANDOM_STRING/dcm/*
 
@@ -122,7 +122,6 @@ start_model() {
       logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
       docker logs $CONTAINERID 2>&1 | grep "ERROR"
       RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
-      echo $(docker logs $CONTAINERID)
       if [[ $RESULT -eq 1 ]]; then
         logger "$0:docker is up!"
         break
@@ -202,18 +201,16 @@ while :;do
 
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status
-    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip
-
-    LOCALZIPFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
-    LOCALSTATUSFILE="/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"  
-    logger "$0: LOCALZIPFILE: $LOCALZIPFILE" 
-    logger "$0: LOCALSTATUSFILE: $LOCALSTATUSFILE" 
+    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
+ 
+    logger "$0: LOCALZIPFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" 
+    logger "$0: LOCALSTATUSFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status" 
       
-    for VERSION in $(cat $LOCALSTATUSFILE | jq -r '.versions[].version')
+    for VERSION in $(cat /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status| jq -r '.versions[].version')
     do        
         start_model $VERSION
-        if [ -f "$LOCALZIPFILE" ]; then
+        if [ -f "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" ]; then
           update_status "3" "zip file not found" $VERSION
           exit
         fi 
