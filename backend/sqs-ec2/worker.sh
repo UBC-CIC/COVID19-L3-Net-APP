@@ -1,8 +1,8 @@
 #!/bin/bash
 
-urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
+function urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
 
-urlencode() {
+function urlencode() {
 	local LANG=C i c e=''
 	for ((i=0;i<${#1};i++)); do
                 c=${1:$i:1}
@@ -12,11 +12,14 @@ urlencode() {
         echo "$e"
 }
 
-update_status () {
+function update_status () {
   logger "$0:----> update_status $1"
-  CODE=$1
-  MSG=$2
-  VER=$3
+  local CODE=$1
+  local MSG=$2
+  local VER=$3
+
+  cp /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status \
+    mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.bak
 
   jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
     '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
@@ -29,11 +32,15 @@ update_status () {
   logger "$0:----> Status changed to CODE $CODE and MSG $MSG"
 }
 
-process_file() {
+function process_file() {
     logger "$0:----> process_file $1"
 
-    VER=$1
-    HOSTPORT="8$(echo $VER | sed 's/[^0-9]*//g')"
+    local VER=$1
+    local HOSTPORT="8$(echo $VER | sed 's/[^0-9]*//g')"
+    local STATS=""
+    local DCMS=""
+    local PNGS=""
+    local DATAJS=""
 
     logger "$0:----> Processing $FNAME for $VER"
 
@@ -104,19 +111,22 @@ process_file() {
 
 }
 
-start_model() {
+function start_model() {
   logger "$0:----> start_model $1"
-  TAG=$1
-  HOSTPORT="8$(echo $TAG | sed 's/[^0-9]*//g')"
-  CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
+  local TAG=$1
+  local HOSTPORT="8$(echo $TAG | sed 's/[^0-9]*//g')"
+  local CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
+  local CONTAINERID=""
+  local ATTEMPT=0
+  local RESULT=""
+
   if [[ $CONTAINER_STATUS == covid-19* ]]; then
     logger "$0:docker is already up!"
     exit
   fi
   logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
   CONTAINERID="$(docker run --runtime nvidia -p $HOSTPORT:80 --network 'host' -d --restart always covid-19-api:$TAG)"
-  logger "$0:-------------- Container started --------------"
-  ATTEMPT=0
+  logger "$0:-------------- Container started --------------"  
   while [ $ATTEMPT -le 8 ]; do
       ATTEMPT=$(( $ATTEMPT + 1 ))
       logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
@@ -210,7 +220,7 @@ while :;do
     for VERSION in $(cat /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status| jq -r '.versions[].version')
     do        
         start_model $VERSION
-        if [ -f "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" ]; then
+        if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" ]; then
           update_status "3" "zip file not found" $VERSION
           exit
         fi 
