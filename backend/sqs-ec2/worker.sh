@@ -14,8 +14,8 @@ function urlencode() {
 
 function status_content_update() {
   logger "$0:----> status_content_update"
-  local $KEY=$1
-  local $VALUE=$2
+  local KEY=$1
+  local VALUE=$2
 
   jq --arg KEY $KEY --arg VALUE $VALUE '.[$KEY] = $VALUE' \
     /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
@@ -177,7 +177,7 @@ AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INS
 
 logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
 
-status_content_update "cloudfrontUrl" $CLOUDFRONT
+status_content_update "cloudfrontUrl" "$CLOUDFRONT"
 
 while :;do 
 
@@ -233,8 +233,6 @@ while :;do
     # FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
     RANDOM_STRING=$(openssl rand -base64 8 | tr -dc 'a-zA-Z0-9')
 
-    status_content_update "uid" $RANDOM_STRING
-
     logger "$0: RANDOM_STRING: $RANDOM_STRING"
 
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING
@@ -264,6 +262,8 @@ while :;do
         # fi
 
     done
+
+    status_content_update "uid" "$RANDOM_STRING"
 
     rm -rf /mnt/efs/ec2/$RANDOM_STRING
     
