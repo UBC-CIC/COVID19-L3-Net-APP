@@ -67,7 +67,7 @@ function process_file() {
     unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
     # Preping the data for the JSON File
-    if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt"]; then
+    if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt" ]; then
       for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
         echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
       done
@@ -144,6 +144,7 @@ function start_process_model() {
   curl -X POST -F "input_file=@/mnt/efs/ec2/$RANDOM_STRING/dcms.zip" http://localhost/predict/?format=png -o /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip
   logger "$0: Killing Container $CONTAINERID"
   docker kill $CONTAINERID
+  logger "$0:-------------- start_process_model finished --------------"
 }
 
 # Initializing Variables
