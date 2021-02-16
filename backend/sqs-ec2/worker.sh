@@ -31,9 +31,6 @@ function update_status () {
   local MSG=$2
   local VER=$3
 
-  cp /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status \
-    mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.bak
-
   jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
     '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
     /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
