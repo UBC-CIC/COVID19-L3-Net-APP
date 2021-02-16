@@ -20,7 +20,7 @@ update_status () {
 
   jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
     '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
-    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status" > \
+    /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
     "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
 
   rm "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
