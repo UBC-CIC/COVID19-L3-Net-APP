@@ -12,6 +12,19 @@ function urlencode() {
         echo "$e"
 }
 
+function status_content_update() {
+  logger "$0:----> status_content_update"
+  local $KEY=$1
+  local $VALUE=$2
+
+  jq --arg KEY $KEY --arg VALUE $VALUE '.[$KEY] = $VALUE' \
+    /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
+    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+
+  save_status_file "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+
+}
+
 function update_status () {
   logger "$0:----> update_status $1"
   local CODE=$1
@@ -26,10 +39,15 @@ function update_status () {
     /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
     "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
 
+  save_status_file "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+}
+
+function save_status_file() {
+  local TEMPFILE=$1
+
   rm "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
-  mv "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp" "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+  mv -f $TEMPFILE "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
   aws s3 cp /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status
-  logger "$0:----> Status changed to CODE $CODE and MSG $MSG"
 }
 
 function process_file() {
@@ -64,7 +82,7 @@ function process_file() {
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING/png/$VER
-    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
+    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$VER-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
     # Preping the data for the JSON File
     if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt" ]; then
@@ -72,12 +90,13 @@ function process_file() {
         echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
       done
     fi
-    DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt)
+    DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
     echo $DCMS 
+
     for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.png; do
-      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt
+      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-count.txt
     done
-    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-count.txt)
+    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-count.txt)
     echo $PNGS
     for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.json; do
       #Should only be 1 JSON file, so just take the last one.
@@ -161,6 +180,8 @@ AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INS
 
 logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
 
+status_content_update "cloudfrontUrl" $CLOUDFRONT
+
 while :;do 
 
   # Spot instance interruption notice detection
@@ -214,6 +235,9 @@ while :;do
     # Format 2020-07-23 14:01:19 to 202007231401
     # FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
     RANDOM_STRING=$(openssl rand -base64 8 | tr -dc 'a-zA-Z0-9')
+
+    status_content_update "uid" $RANDOM_STRING
+
     logger "$0: RANDOM_STRING: $RANDOM_STRING"
 
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING
