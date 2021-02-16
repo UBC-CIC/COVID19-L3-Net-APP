@@ -53,7 +53,9 @@ function process_file() {
       mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
       unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
       # Preping DCM files to be sent to the model (making sure they are under a folder)
-      zip -r /mnt/efs/ec2/$RANDOM_STRING/dcms.zip /mnt/efs/ec2/$RANDOM_STRING/dcm/*
+      cd /mnt/efs/ec2/$RANDOM_STRING
+      zip -r /mnt/efs/ec2/$RANDOM_STRING/dcms.zip dcm/*
+      cd $WORKING_DIR
     fi
 
     # Start and processing the model
