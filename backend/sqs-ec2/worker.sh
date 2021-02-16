@@ -48,29 +48,28 @@ function process_file() {
     update_status "1" Processing $VER  
 
     # Unzipping the dcm files
-    logger "$0:----> Unzipping DCM files"
-    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
-    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
-    # Preping DCM files to be sent to the model (making sure they are under a folder)
-    zip -r /mnt/efs/ec2/$RANDOM_STRING-dcm.zip /mnt/efs/ec2/$RANDOM_STRING/dcm/*
+    if [ ! -f /mnt/efs/ec2/$RANDOM_STRING/dcms.zip ]; then
+      logger "$0:----> Unzipping DCM files"
+      mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
+      unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
+      # Preping DCM files to be sent to the model (making sure they are under a folder)
+      zip -r /mnt/efs/ec2/$RANDOM_STRING/dcms.zip /mnt/efs/ec2/$RANDOM_STRING/dcm/*
+    fi
 
-    logger "$0: Start model processing"
-    # Submitting file to the model
-    echo 
-    curl -X POST -F "input_file=@/mnt/efs/ec2/$RANDOM_STRING-dcm.zip" http://localhost:$HOSTPORT/predict/?format=png -o /mnt/efs/ec2/$RANDOM_STRING/png/$VER.zip
-    logger "$0: END model processing"
+    # Start and processing the model
+    start_process_model $VER
 
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING/png/$VER
-    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/png.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
-
+    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
     # Preping the data for the JSON File
-    STATS=""
-    for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
-      echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
-    done
+    if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt"]; then
+      for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
+        echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
+      done
+    fi
     DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt)
     echo $DCMS 
     for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.png; do
@@ -111,7 +110,7 @@ function process_file() {
 
 }
 
-function start_model() {
+function start_process_model() {
   logger "$0:----> start_model $1"
   local TAG=$1
   local HOSTPORT="8$(echo $TAG | sed 's/[^0-9]*//g')"
@@ -125,7 +124,7 @@ function start_model() {
     exit
   fi
   logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
-  CONTAINERID="$(docker run --runtime nvidia -p $HOSTPORT:80 --network 'host' -d --restart always covid-19-api:$TAG)"
+  CONTAINERID="$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$TAG)"
   logger "$0:-------------- Container started --------------"  
   while [ $ATTEMPT -le 8 ]; do
       ATTEMPT=$(( $ATTEMPT + 1 ))
@@ -138,6 +137,11 @@ function start_model() {
       fi
       sleep 5
   done
+
+  logger "$0:-------------- Starting model processing"
+  curl -X POST -F "input_file=@/mnt/efs/ec2/$RANDOM_STRING/dcms.zip" http://localhost/predict/?format=png -o /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip
+  logger "$0: Killing Container $CONTAINERID"
+  docker kill $CONTAINERID
 }
 
 # Initializing Variables
@@ -211,15 +215,14 @@ while :;do
 
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
-    aws s3 cp s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
+    aws s3 cp --quiet s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+    aws s3 cp --quiet s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
  
     logger "$0: LOCALZIPFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" 
     logger "$0: LOCALSTATUSFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status" 
       
     for VERSION in $(cat /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status| jq -r '.versions[].version')
-    do        
-        start_model $VERSION
+    do                
         if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" ]; then
           update_status "3" "zip file not found" $VERSION
           exit
@@ -238,7 +241,7 @@ while :;do
 
     done
 
-    #rm -rf /mnt/efs/ec2/$RANDOM_STRING
+    rm -rf /mnt/efs/ec2/$RANDOM_STRING
     
     logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
     aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
