@@ -62,15 +62,24 @@ function process_file() {
     # Updating status
     update_status "1" Processing $VER  
 
-    # Unzipping the dcm files
+    # Unzipping the dcm files and preping the DCM for DATA.JS
     if [ ! -f /mnt/efs/ec2/$RANDOM_STRING/dcms.zip ]; then
       logger "$0:----> Unzipping DCM files"
       mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
       unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
       # Preping DCM files to be sent to the model (making sure they are under a folder)
       cd /mnt/efs/ec2/$RANDOM_STRING
-      zip -r /mnt/efs/ec2/$RANDOM_STRING/dcms.zip dcm/*
+      zip -r -q /mnt/efs/ec2/$RANDOM_STRING/dcms.zip dcm/*
       cd $WORKING_DIR
+
+      for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
+          echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
+      done
+      DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
+      echo $DCMS 
+    else
+      DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
+      echo $DCMS 
     fi
 
     # Start and processing the model
@@ -81,20 +90,12 @@ function process_file() {
     mkdir -p /mnt/efs/ec2/$RANDOM_STRING/png/$VER
     unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$VER-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
-    # Preping the data for the JSON File
-    if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/dcms-count.txt" ]; then
-      for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
-        echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
-      done
-    fi
-    DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
-    echo $DCMS 
-
     for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.png; do
-      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-count.txt
+      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt
     done
-    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-count.txt)
+    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt)
     echo $PNGS
+    
     for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.json; do
       #Should only be 1 JSON file, so just take the last one.
       STATS="\"${CLOUDFRONT}/png/$VER/$(basename $file)\",\n"
