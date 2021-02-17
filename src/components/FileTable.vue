@@ -23,64 +23,12 @@
       </template>
 
       <template v-slot:body-cell-v1="props">
-        <q-td :props="props">
-          <q-btn
-            flat
-            :color="
-              props.row.v2.code == '2'
-                ? 'black'
-                : props.row.v2.code == '3'
-                ? 'red'
-                : 'orange'
-            "       
-            size="lg"           
-            :icon="
-              props.row.v2.code == '2'
-                ? 'analytics'
-                : props.row.v2.code == '3'
-                ? 'error'
-                : 'query_builder'
-            "
-            >
-            <q-tooltip
-              content-class="bg-black"
-              content-style="font-size: 16px"
-              :offset="[10, 10]"
-              >{{ props.row.v2.msg }}</q-tooltip
-            >
-          </q-btn>
-        </q-td>
+        <ModelStatus :row="props.row.v1" />
+      </template>
+      <template v-slot:body-cell-v2="props">
+        <ModelStatus :row="props.row.v2" />
       </template>
 
-      <template v-slot:body-cell-v2="props">
-        <q-td :props="props">
-          <q-btn
-            flat
-            :color="
-              props.row.v2.code == '2'
-                ? 'black'
-                : props.row.v2.code == '3'
-                ? 'red'
-                : 'orange'
-            "       
-            size="lg"           
-            :icon="
-              props.row.v2.code == '2'
-                ? 'analytics'
-                : props.row.v2.code == '3'
-                ? 'error'
-                : 'query_builder'
-            "
-            >
-            <q-tooltip
-              content-class="bg-black"
-              content-style="font-size: 16px"
-              :offset="[10, 10]"
-              >{{ props.row.v2.msg }}</q-tooltip
-            >
-          </q-btn>
-        </q-td>
-      </template>
     </q-table>
      <q-dialog v-model="alert">
       <q-card>
@@ -119,6 +67,7 @@
 import { mapState } from "vuex";
 import axios from "axios";
 import { Storage } from "aws-amplify";
+import ModelStatus from "../components/ModelStatus";
 
 function prettySize(bytes, separator = "", postFix = "") {
   if (bytes) {
@@ -136,6 +85,9 @@ function prettySize(bytes, separator = "", postFix = "") {
 
 export default {
   name: "Home",
+    components: {
+    ModelStatus
+  },
   data() {
     return {
       selected: [],
@@ -223,9 +175,11 @@ export default {
                   if (status.versions[j].version == "v1") {
                     v1.code = status.versions[j].code;
                     v1.msg = status.versions[j].msg;
+                    v1.ver = "v1"
                   } else if ( status.versions[j].version == "v2") {
                     v2.code = status.versions[j].code;
                     v2.msg = status.versions[j].msg;
+                    v2.ver = "v2"
                   }
                 }
               }

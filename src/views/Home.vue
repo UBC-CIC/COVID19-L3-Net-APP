@@ -252,8 +252,6 @@ export default {
             .catch(err => console.log(err));
         };
 
-          
-
         reader.onerror = function(event) {
           console.error(
             "File could not be read! Code " + event.target.error.code
