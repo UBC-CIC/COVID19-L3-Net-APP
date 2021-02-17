@@ -178,8 +178,6 @@ AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INS
 
 logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
 
-status_content_update "cloudfrontUrl" "$CLOUDFRONT"
-
 while :;do 
 
   # Spot instance interruption notice detection
@@ -265,6 +263,7 @@ while :;do
     done
 
     status_content_update "uid" "$RANDOM_STRING"
+    status_content_update "cloudfrontUrl" "$CLOUDFRONT"
 
     rm -rf /mnt/efs/ec2/$RANDOM_STRING
     

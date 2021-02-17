@@ -13,80 +13,33 @@
       :selected.sync="selected"
     >
       <template v-slot:top>
-        <q-btn round color="deep-orange" icon="delete_outlined" @click="removeRows" />
+        <q-btn round color="deep-orange" icon="delete_outlined" @click="removeDialog" />
         <q-space />
-        <q-input borderless dense debounce="300" color="primary" v-model="filter">
+        <!-- <q-input borderless dense debounce="300" color="primary" v-model="filter">
           <template v-slot:append>
             <q-icon name="search" />
           </template>
-        </q-input>
+        </q-input> -->
       </template>
-      <!-- <template v-slot:body-cell-actions="props">
-        <q-td :props="props">
-          <q-btn
-            dense
-            round
-            flat
-            color="grey"
-            @click="deleteFile(props.filename)"
-            icon="delete_outlined"
-          ></q-btn>
-        </q-td>
-      </template> -->
 
       <template v-slot:body-cell-v1="props">
         <q-td :props="props">
-          <q-chip            
-            :color="
-              props.row.v1.code == '2'
-                ? 'green'
-                : props.row.v1.code == '3'
-                ? 'red'
-                : props.row.v1.code == '99'
-                ? 'grey'
-                : 'orange'
-            "
-            text-color="white"
-            square
-            :icon="
-              props.row.v1.code == '2'
-                ? 'check_circle'
-                : props.row.v1.code == '3'
-                ? 'error'
-                : props.row.v1.code == '99'
-                ? 'hide_source'
-                : 'build_circle'
-            "
-            >
-            <q-tooltip
-              content-class="bg-black"
-              content-style="font-size: 16px"
-              :offset="[10, 10]"
-              >{{ props.row.v1.msg }}</q-tooltip
-            >
-          </q-chip>
-        </q-td>
-      </template>
-
-      <template v-slot:body-cell-v2="props">
-        <q-td :props="props">
-          <q-chip
-            
+          <q-btn
+            flat
             :color="
               props.row.v2.code == '2'
-                ? 'green'
+                ? 'black'
                 : props.row.v2.code == '3'
                 ? 'red'
                 : 'orange'
-            "
-            text-color="white"
-            square
+            "       
+            size="lg"           
             :icon="
               props.row.v2.code == '2'
-                ? 'check_circle'
+                ? 'analytics'
                 : props.row.v2.code == '3'
                 ? 'error'
-                : 'build_circle'
+                : 'query_builder'
             "
             >
             <q-tooltip
@@ -95,10 +48,70 @@
               :offset="[10, 10]"
               >{{ props.row.v2.msg }}</q-tooltip
             >
-          </q-chip>
+          </q-btn>
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-v2="props">
+        <q-td :props="props">
+          <q-btn
+            flat
+            :color="
+              props.row.v2.code == '2'
+                ? 'black'
+                : props.row.v2.code == '3'
+                ? 'red'
+                : 'orange'
+            "       
+            size="lg"           
+            :icon="
+              props.row.v2.code == '2'
+                ? 'analytics'
+                : props.row.v2.code == '3'
+                ? 'error'
+                : 'query_builder'
+            "
+            >
+            <q-tooltip
+              content-class="bg-black"
+              content-style="font-size: 16px"
+              :offset="[10, 10]"
+              >{{ props.row.v2.msg }}</q-tooltip
+            >
+          </q-btn>
         </q-td>
       </template>
     </q-table>
+     <q-dialog v-model="alert">
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">Alert</div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          {{ alert_msg }}
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="OK" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+     <q-dialog v-model="confirm" persistent>
+      <q-card>
+        <q-card-section class="row items-center">
+          <q-avatar icon="warning_amber" color="warning" text-color="white" />
+          <span class="q-ml-sm">Are you sure to delete {{selected.length}} files?</span>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="No" color="red" v-close-popup />
+          <q-btn flat label="Yes" color="primary" v-close-popup @click="removeRows" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
   </div>
 </template>
 
@@ -157,6 +170,9 @@ export default {
       ],
       data: [],
       listFiles: {},
+      alert: false,
+      alert_msg: '',
+      confirm: false
     };
   },
   props: {
@@ -267,11 +283,47 @@ export default {
         ).catch((err) => console.log(err));
     },
 
-    deleteFile(fileName) {
-      Storage.remove(fileName, { level: "private" })
-        //.then(result => console.log(result))
-        .catch((err) => console.log(err));
-      this.$emit("forceRenderFileTable");
+    removeDialog() {
+      if (this.selected.length === 0) {
+        this.alert_msg = "You have to select one or more files to be deleted."
+        this.alert = true;
+      }
+      else {
+        this.confirm = true
+      }
+    },
+
+    async removeRows() {
+      for (let i = 0; i < this.selected.length; ++i) {
+        console.log(this.selected[i].key);
+        var statusfile = this.selected[i].key.replace("zip","status")
+        var status  = await this.getFileStatus(statusfile)
+
+        console.log("dcm/"+status.uid);
+
+        Storage.remove(this.selected[i].key, { level: "private" })
+           //.then(result => console.log(result))
+           .catch((err) => console.log(err));
+
+        Storage.remove(statusfile, { level: "private" })
+           //.then(result => console.log(result))
+           .catch((err) => console.log(err));
+
+        Storage.remove("dcm/"+status.uid+"/")
+           //.then(result => console.log(result))
+           .catch((err) => console.log(err));
+
+        Storage.remove("png/"+status.uid+"/")
+          //.then(result => console.log(result))
+          .catch((err) => console.log(err));
+
+        Storage.remove("html/"+status.uid)
+           //.then(result => console.log(result))
+           .catch((err) => console.log(err));
+
+
+         this.$emit("forceRenderFileTable");
+      }
     },
   },
 };
