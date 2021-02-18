@@ -1,8 +1,8 @@
 #!/bin/bash
 
-urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
+function urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
 
-urlencode() {
+function urlencode() {
 	local LANG=C i c e=''
 	for ((i=0;i<${#1};i++)); do
                 c=${1:$i:1}
@@ -12,132 +12,171 @@ urlencode() {
         echo "$e"
 }
 
-update_status () {
-    CODE=$1
-    MSG=$2
-    echo "{ \"code\": $CODE, \"msg\": \"$MSG\", \"cloudfrontUrl\": \"$CLOUDFRONT\" }" > /mnt/${FNAME}.status    
-    aws s3 cp --quiet /mnt/${FNAME}.status s3://$S3BUCKET/$S3KEY.status
-    logger "$0:----> Status changed to $MSG"
+function status_content_update() {
+  logger "$0:----> status_content_update"
+  local KEY=$1
+  local VALUE=$2
+
+  jq --arg KEY $KEY --arg VALUE $VALUE '.[$KEY] = $VALUE' \
+    /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
+    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+
+  save_status_file "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+
 }
 
-process_file () {
-    
-    logger "$0:----> Processing $FNAME"
+function update_status () {
+  logger "$0:----> update_status $1"
+  local CODE=$1
+  local MSG=$2
+  local VER=$3
 
-    logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in"
-    aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in
+  jq --arg CODE $CODE --arg VER $VER --arg MSG $MSG \
+    '.versions |= map(if .version == $VER then .code = $CODE | .msg = $MSG  else . end)' \
+    /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status > \
+    "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+
+  save_status_file "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status.tmp"
+}
+
+function save_status_file() {
+  local TEMPFILE=$1
+
+  rm "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+  mv -f $TEMPFILE "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+  aws s3 cp /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status
+}
+
+function process_file() {
+    logger "$0:----> process_file $1"
+
+    local VER=$1
+    local HOSTPORT="8$(echo $VER | sed 's/[^0-9]*//g')"
+    local STATS=""
+    local DCMS=""
+    local PNGS=""
+    local DATAJS=""
+
+    logger "$0:----> Processing $FNAME for $VER"
 
     # Updating status
-    update_status "1" Processing
+    update_status "1" Processing $VER  
 
-    # Copying the ZIP CT-Scan file
-    aws s3 cp s3://$S3BUCKET/$S3KEY /mnt/$FNAME
-    #
-    # 2020-07-23 14:01:19
-    # 202007231401
-    FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
+    # Unzipping the dcm files and preping the DCM for DATA.JS
+    if [ ! -f /mnt/efs/ec2/$RANDOM_STRING/dcms.zip ]; then
+      logger "$0:----> Unzipping DCM files"
+      mkdir -p /mnt/efs/ec2/$RANDOM_STRING/dcm
+      unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip -d /mnt/efs/ec2/$RANDOM_STRING/dcm
+      # Preping DCM files to be sent to the model (making sure they are under a folder)
+      cd /mnt/efs/ec2/$RANDOM_STRING
+      zip -r -q /mnt/efs/ec2/$RANDOM_STRING/dcms.zip dcm/*
+      cd $WORKING_DIR
 
-    logger "$0: Start model processing"
-    # Submitting file to the model
-    echo 
-    curl -X POST -F "input_file=@/mnt/$FNAME" http://localhost/predict/?format=png -o /mnt/$FNAME_NO_SUFFIX-png.zip
-    logger "$0: END model processing"
+      for file in /mnt/efs/ec2/$RANDOM_STRING/dcm/*.dcm; do
+          echo "\"${CLOUDFRONT}/dcm/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt
+      done
+      DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
+      echo $DCMS 
+    else
+      DCMS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt)
+      echo $DCMS 
+    fi
+
+    # Start and processing the model
+    start_process_model $VER
 
     # Unzipping the png files
     logger "$0:----> Unzipping PNG files"
-    mkdir -p /mnt/png/$FNAME_NO_SUFFIX    
-    unzip -j -q /mnt/$FNAME_NO_SUFFIX-png.zip -d /mnt/png/$FNAME_NO_SUFFIX
-    # Unzipping the dcm files
-    logger "$0:----> Unzipping DCM files"
-    mkdir -p /mnt/dcm/$FNAME_NO_SUFFIX
-    unzip -j -q /mnt/$FNAME -d /mnt/dcm/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/png/$VER
+    unzip -j -q /mnt/efs/ec2/$RANDOM_STRING/$VER-pngs.zip -d /mnt/efs/ec2/$RANDOM_STRING/png/$VER
 
-    # Preping the data for the JSON File
-    DCMS=""
-    PNGS=""
-    STATS=""
-    for file in /mnt/dcm/$FNAME_NO_SUFFIX/*.dcm; do
-      DCMS+="\"${CLOUDFRONT}/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
+    for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.png; do
+      echo "\"${CLOUDFRONT}/png/$VER/$RANDOM_STRING/$(basename $file)\"," >> /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt
     done
-    for file in /mnt/png/$FNAME_NO_SUFFIX/*.png; do
-      PNGS+="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
-    done
-    for file in /mnt/png/$FNAME_NO_SUFFIX/*.json; do
+    PNGS=$(wc -l /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt)
+    echo $PNGS
+    
+    for file in /mnt/efs/ec2/$RANDOM_STRING/png/$VER/*.json; do
       #Should only be 1 JSON file, so just take the last one.
-      STATS="\"${CLOUDFRONT}/png/$FNAME_NO_SUFFIX-$FILE_DATE/$(basename $file)\",\n"
+      STATS="\"${CLOUDFRONT}/png/$VER/$(basename $file)\",\n"
     done
+    echo $STATS
 
     # Copying to the public bucket
     logger "$0:----> Moving DCM and PNG files to S3"
-    aws s3 cp --quiet --recursive /mnt/dcm/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/dcm/$FNAME_NO_SUFFIX-$FILE_DATE/
-    aws s3 cp --quiet --recursive /mnt/png/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/png/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/dcm s3://$S3BUCKET/public/dcm/$RANDOM_STRING/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/png/$VER s3://$S3BUCKET/public/png/$VER/$RANDOM_STRING/
   
     # html and data.js file
     logger "$0:----> Preping index.html and data.js"
-    mkdir -p /mnt/html/$FNAME_NO_SUFFIX
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING/html/$VER
 
-    DATAJS=${CLOUDFRONT}/html/$FNAME_NO_SUFFIX-$FILE_DATE/data.js
+    DATAJS=${CLOUDFRONT}/html/$VER/$RANDOM_STRING/data.js
 
-    cp $WORKING_DIR/sapien/index.html /mnt/html/$FNAME_NO_SUFFIX
-    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
-    sed -i "s|DATAJS|${DATAJS}|g" /mnt/html/$FNAME_NO_SUFFIX/index.html
+    cp $WORKING_DIR/sapien/$VER/index.html /mnt/efs/ec2/$RANDOM_STRING/html/$VER
+    sed -i "s|CLOUDFRONT|${CLOUDFRONT}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/index.html
+    sed -i "s|DATAJS|${DATAJS}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/index.html
 
-    cp $WORKING_DIR/sapien/data.js /mnt/html/$FNAME_NO_SUFFIX
-    sed -i "s|%DICOM_FILES%|${DCMS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%PNG_FILES%|${PNGS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
-    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/html/$FNAME_NO_SUFFIX/data.js
+    cp $WORKING_DIR/sapien/$VER/data.js /mnt/efs/ec2/$RANDOM_STRING/html/$VER
+    sed -i -e "/%DICOM_FILES%/{r /mnt/efs/ec2/$RANDOM_STRING/dcms-files.txt" -e "d}" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
+    sed -i -e "/%PNG_FILES%/{r /mnt/efs/ec2/$RANDOM_STRING/pngs-$VER-files.txt" -e "d}" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
+    sed -i "s|%url_statJson%|${STATS%???}|g" /mnt/efs/ec2/$RANDOM_STRING/html/$VER/data.js
 
-    aws s3 cp --quiet --recursive /mnt/html/$FNAME_NO_SUFFIX s3://$S3BUCKET/public/html/$FNAME_NO_SUFFIX-$FILE_DATE/
+    aws s3 cp --quiet --recursive /mnt/efs/ec2/$RANDOM_STRING/html/$VER s3://$S3BUCKET/public/html/$VER/$RANDOM_STRING/
 
     # Updating status
-    update_status "2" Ready    
-
-    logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
-
-    aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
-
-    logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in"
-
-    aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in
-
-    sleep 5
+    update_status "2" Ready $VER 
 
 }
 
-GITBRANCH="%gitBranchVar%"
+function start_process_model() {
+  logger "$0:----> start_model $1"
+  local TAG=$1
+  local HOSTPORT="8$(echo $TAG | sed 's/[^0-9]*//g')"
+  local CONTAINER_STATUS=$(docker ps --format '{{.Image}}')
+  local CONTAINERID=""
+  local ATTEMPT=0
+  local RESULT=""
+
+  if [[ $CONTAINER_STATUS == covid-19* ]]; then
+    logger "$0:docker is already up!"
+    exit
+  fi
+  logger "$0:-------------- Starting container model covid-19-api:$TAG --------------"
+  CONTAINERID="$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$TAG)"
+  logger "$0:-------------- Container started --------------"  
+  while [ $ATTEMPT -le 8 ]; do
+      ATTEMPT=$(( $ATTEMPT + 1 ))
+      logger "$0:Waiting for docker to be up (ATTEMPT: $ATTEMPT)..."
+      docker logs $CONTAINERID 2>&1 | grep "ERROR"
+      RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
+      if [[ $RESULT -eq 1 ]]; then
+        logger "$0:docker is up!"
+        break
+      fi
+      sleep 5
+  done
+
+  logger "$0:-------------- Starting model processing"
+  curl -X POST -F "input_file=@/mnt/efs/ec2/$RANDOM_STRING/dcms.zip" http://localhost/predict/?format=png -o /mnt/efs/ec2/$RANDOM_STRING/$TAG-pngs.zip
+  logger "$0: Killing Container $CONTAINERID"
+  docker kill $CONTAINERID
+  logger "$0:-------------- start_process_model finished --------------"
+}
+
+# Initializing Variables
+GITBRANCH=%BRANCH%
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION="$(curl -s http://169.254.169.254/latest/meta-data/local-hostname | cut -d . -f 2)"
-CLOUDFRONT=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/cloudfrontdomain" --query Parameter.Value --output text)
-CLOUDFRONT="https://$CLOUDFRONT"
-SQSQUEUE=$(aws ssm get-parameter --name "/covid19l3/${GITBRANCH}/sqsurl" --query Parameter.Value --output text)
-WORKING_DIR=/root/covid-19-app-${GITBRANCH}/backend/sqs-ec2
+CLOUDFRONT="https://$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/cloudfrontdomain" --query Parameter.Value --output text)"
+SQSVPCE=$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/sqsvpce" --query Parameter.Value --output text)
+SQSURL=$(echo $SQSVPCE | cut -d':' -f2)
+SQSNAME=$(aws ssm get-parameter --name "/covid19l3/$GITBRANCH/sqsname" --query Parameter.Value --output text)
+SQSQUEUE="https://$SQSURL/$SQSNAME"
+WORKING_DIR=/root/covid-19-app/backend/sqs-ec2
 AUTOSCALINGGROUP=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=aws:autoscaling:groupName" | jq -r '.Tags[0].Value')
 
 logger "$0:  -------------- INSTANCE_ID: $INSTANCE_ID - CLOUDFRONT: $CLOUDFRONT - SQSQUEUE: $SQSQUEUE"
-
-logger "$0: -------------- container tag  --------------"
-if [[ "${GITBRANCH}" == "master" ]]; then
-  IMAGE_TAG="latest"
-else
-  IMAGE_TAG="${GITBRANCH}"
-fi 
-
-logger "$0:-------------- Starting container model covid-19-api:$IMAGE_TAG --------------"
-CONTAINERID=$(docker run --runtime nvidia -p 80:80 --network 'host' -d --restart always covid-19-api:$IMAGE_TAG)
-logger "$0:-------------- Done --------------"
-ATTEMPT=0
-while [ $ATTEMPT -le 8 ]; do
-    ATTEMPT=$(( $ATTEMPT + 1 ))
-    logger "$0:Waiting for server to be up (ATTEMPT: $ATTEMPT)..."
-    docker logs $CONTAINERID 2>&1 | grep "ERROR"
-    RESULT=$(docker logs $CONTAINERID 2>&1 | grep "Listening at: http://0.0.0.0:80" | wc -l)
-    if [[ $RESULT -eq 1 ]]; then
-      logger "$0:Model is up!"
-      break
-    fi
-    sleep 5
-done
-
 
 while :;do 
 
@@ -168,40 +207,71 @@ while :;do
 
   fi
 
-  logger "$0: Found $MESSAGES messages in $SQSQUEUE. Details: JSON=$JSON, RECEIPT=$RECEIPT, BODY=$BODY"
+  logger "$0: Found $MESSAGES messages in $SQSQUEUE"
 
   S3BUCKET=$(echo "$BODY" | jq -r '.Records[0] | .s3.bucket.name')
   INPUT=$(echo "$BODY" | jq -r '.Records[0] | .s3.object.key')
   S3KEY=$(urldecode $INPUT | tr '[:upper:]' '[:lower:]')
+
+  logger "$0: S3KEY=$S3KEY"
 
   S3KEY_NO_SUFFIX=$(echo $S3KEY | rev | cut -f2 -d"." | rev)
   FNAME=$(basename $S3KEY)
   FNAME_NO_SUFFIX="$(basename $S3KEY .zip)"
   FEXT=$(echo $S3KEY | rev | cut -f1 -d"." | rev)
 
-  if [ "$FEXT" = "zip" ]; then
+  if [ "$FEXT" == "zip" ]; then
 
-    logger "$0: Found work. Details: S3KEY=$S3KEY, FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
+    #FNAME=patient-a.zip, FNAME_NO_SUFFIX=patient-a.zip, FEXT=zip, S3KEY_NO_SUFFIX=private/us-west-2:5b1169cf-10f3-4b96-9374-64b50110ec13/patient-a
+    logger "$0: Found work. Details: FNAME=$FNAME, FNAME_NO_SUFFIX=$FNAME_NO_SUFFIX, FEXT=$FEXT, S3KEY_NO_SUFFIX=$S3KEY_NO_SUFFIX"
 
-    if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/sapiencovid_demo.js)" ]; then
-      logger "$0: Copying sapien plugin files to S3"
-      aws s3 cp --quiet --recursive $WORKING_DIR/sapien/ s3://$S3BUCKET/public/sapien/
-    fi
+    logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in"
+    aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --protected-from-scale-in
 
-    aws s3 cp s3://$S3BUCKET/$S3KEY.status /mnt/${FNAME}.status
+    # Format 2020-07-23 14:01:19 to 202007231401
+    # FILE_DATE=$(aws s3 ls s3://$S3BUCKET/$S3KEY | grep -v status | awk -F'[^0-9]*' '{print $1$2$3$4$5}')
+    RANDOM_STRING=$(openssl rand -base64 8 | tr -dc 'a-zA-Z0-9')
 
-    if [ -f "/mnt/${FNAME}.status" ]; then
-      STATUS_CODE=$(cat /mnt/${FNAME}.status | jq -r '.code')
-      logger "$0: ${FNAME}.status = $STATUS_CODE"
-    else 
-      update_status "3" "Status file not found"
-    fi
+    logger "$0: RANDOM_STRING: $RANDOM_STRING"
 
-    if [ $STATUS_CODE -eq 0 ]; then
-      process_file      
-    else
-      logger "$0: ${FNAME} was probably processed by another worker"
-    fi
+    mkdir -p /mnt/efs/ec2/$RANDOM_STRING
+
+    aws s3 cp --quiet s3://$S3BUCKET/$S3KEY_NO_SUFFIX.status "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status"
+    aws s3 cp --quiet s3://$S3BUCKET/$S3KEY_NO_SUFFIX.zip "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip"
+ 
+    logger "$0: LOCALZIPFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" 
+    logger "$0: LOCALSTATUSFILE: /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status" 
+      
+    for VERSION in $(cat /mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.status| jq -r '.versions[].version')
+    do                
+        if [ ! -f "/mnt/efs/ec2/$RANDOM_STRING/$FNAME_NO_SUFFIX.zip" ]; then
+          update_status "3" "zip file not found" $VERSION
+          exit
+        fi 
+
+        if [ -z "$(aws s3 ls $S3BUCKET/public/sapien/$VERSION/sapiencovid_demo.js)" ]; then
+          logger "$0: Copying sapien/$VERSION plugin files to S3"
+          aws s3 cp --quiet --recursive $WORKING_DIR/sapien/$VERSION/ s3://$S3BUCKET/public/sapien/$VERSION/
+        fi
+        process_file $VERSION
+        # if [ $STATUS_CODE -eq 0 ]; then
+        #   process_file      
+        # else
+        #   logger "$0: ${FNAME} was probably processed by another worker"
+        # fi
+
+    done
+
+    status_content_update "uid" "$RANDOM_STRING"
+    status_content_update "cloudfrontUrl" "$CLOUDFRONT"
+
+    rm -rf /mnt/efs/ec2/$RANDOM_STRING
+    
+    logger "$0: Running: aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT"
+    aws sqs --output=json delete-message --queue-url $SQSQUEUE --receipt-handle $RECEIPT
+    logger "$0: Running: aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in"
+    aws autoscaling set-instance-protection --instance-ids $INSTANCE_ID --auto-scaling-group-name $AUTOSCALINGGROUP --no-protected-from-scale-in
+    sleep 5
     
   else
 

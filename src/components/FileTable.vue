@@ -1,59 +1,65 @@
 <template>
-  <div class="q-pa-md row items-start q-gutter-md">
-    <q-markup-table>
-      <thead>
-        <tr>
-          <th class="text-right"><q-btn flat color="black" icon="delete_outlined" /></th>
-          <th class="text-left">File Name</th>
-          <th class="text-center">Size</th>
-          <th class="text-center">Date</th>
-          <th class="text-center">Status</th>          
-          <th class="text-right"><q-btn flat color="black" icon="insert_chart_outlined" /></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="val in filesTable" v-bind:key="val.key">
-          <td class="text-right">
-            <q-btn flat color="red" icon="delete_outlined" @click="deleteFile(val.key)">
-              <q-tooltip
-                content-class="bg-black"
-                content-style="font-size: 16px"
-                :offset="[10, 10]"
-              >Delete file</q-tooltip>
-            </q-btn>
-          </td>
-          <td class="text-left">{{ val.key }}</td>
-          <td class="text-left">{{ val.size }}</td>
-          <td class="text-center">{{ val.uploadat }}</td>
-          <td class="text-center">
-            <q-btn flat :color="val.btn.color" :icon="val.btn.icon">
-              <q-tooltip
-                content-class="bg-black"
-                content-style="font-size: 16px"
-                :offset="[10, 10]"
-              >{{ val.status["msg"] }}</q-tooltip>
-            </q-btn></td>          
-          <td class="text-center">           
-              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined" @click="mlview(val.code, val.key)">
-                <q-tooltip
-                  content-class="bg-black"
-                  content-style="font-size: 16px"
-                  :offset="[10, 10]"
-                >Visualize ML model</q-tooltip>
-              </q-btn>
-            <!-- <router-link :to="{ name: 'visualize', params: { code: val.code }}">              
-              <q-btn v-if="val.status['code'] == 2" flat color="black" icon="insert_chart_outlined">
-                <q-tooltip
-                  content-class="bg-black"
-                  content-style="font-size: 16px"
-                  :offset="[10, 10]"
-                >Visualize ML model</q-tooltip>
-              </q-btn>
-            </router-link> -->
-          </td>
-        </tr>
-      </tbody>
-    </q-markup-table>
+  <div class="q-pa-md">
+    <q-table
+      flat      
+      :data="data"
+      :columns="columns"
+      row-key="fileuuid"
+      virtual-scroll
+      :rows-per-page-options="[0]"
+      :visible-columns="visibleColumns"
+      :selected-rows-label="getSelected"
+      selection="multiple"
+      :selected.sync="selected"
+    >
+      <template v-slot:top>
+        <q-btn color="deep-orange" icon="delete_outline" @click="removeDialog" />
+        <q-space />
+        <!-- <q-input borderless dense debounce="300" color="primary" v-model="filter">
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input> -->
+      </template>
+
+      <template v-slot:body-cell-v1="props">
+        <ModelStatus :row="props.row.v1" />
+      </template>
+      <template v-slot:body-cell-v2="props">
+        <ModelStatus :row="props.row.v2" />
+      </template>
+
+    </q-table>
+     <q-dialog v-model="alert">
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">Alert</div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          {{ alert_msg }}
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="OK" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+     <q-dialog v-model="confirm" persistent>
+      <q-card>
+        <q-card-section class="row items-center">
+          <q-avatar icon="warning_amber" color="warning" text-color="white" />
+          <span class="q-ml-sm">Are you sure to delete {{selected.length}} files?</span>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="No" color="red" v-close-popup />
+          <q-btn flat label="Yes" color="primary" v-close-popup @click="removeRows" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
   </div>
 </template>
 
@@ -61,6 +67,7 @@
 import { mapState } from "vuex";
 import axios from "axios";
 import { Storage } from "aws-amplify";
+import ModelStatus from "../components/ModelStatus";
 
 function prettySize(bytes, separator = "", postFix = "") {
   if (bytes) {
@@ -78,77 +85,141 @@ function prettySize(bytes, separator = "", postFix = "") {
 
 export default {
   name: "Home",
+    components: {
+    ModelStatus
+  },
   data() {
     return {
-      filesTable: [],
-      listFiles: {}
+      selected: [],
+      visibleColumns: ["filename", "size", "date", "actions", "v1", "v2"],
+      columns: [
+        {
+          name: "filename",
+          required: true,
+          label: "File Name",
+          align: "left",
+          field: "key",
+          sortable: true
+        }, //key: filename, status: status, btn: btn, size: size, uploadat: uploadAt, code: code
+        {
+          name: "size",
+          align: "center",
+          label: "Size",
+          field: "size",
+          sortable: false,
+        },
+        {
+          name: "date",
+          align: "center",
+          label: "Date",
+          field: "date",
+          sortable: true,
+        },
+        { name: "fileuuid", field: "fileuuid" },
+        { name: "v1", label: "v1", field: "v1", align: "center" },
+        { name: "v2", label: "v2", field: "v2", align: "center" },
+        //{ name: "actions", label: "Actions", field: "", align: "center" },
+      ],
+      data: [],
+      listFiles: {},
+      alert: false,
+      alert_msg: '',
+      confirm: false
     };
   },
   props: {
-    updateTigger: null
+    updateTigger: null,
   },
 
   mounted() {
-    this.mountFilesTable()
+    this.mountFilesTable();
   },
 
   computed: {
     ...mapState({
-      user: state => state.profile.user,
+      user: (state) => state.profile.user,
     }),
-    
   },
 
   methods: {
-    async mlview(code, filename) {
-      let status = await this.getFileStatus(filename + ".status")
-      var url = status["cloudfrontUrl"] + '/html/' + code + '/index.html';
+    getSelected () {
+      return this.selected.length === 0 ? '' : `${this.selected.length} record${this.selected.length > 1 ? 's' : ''} selected of ${this.data.length}`
+    },
+    async mlview(fileuuid, filename) {
+      let status = await this.getFileStatus(filename.replace(".zip",".status"));
+      var url = status["cloudfrontUrl"] + "/html/" + fileuuid + "/index.html";
       //var win = window.open(url, '_blank');
-      var win = window.open(url, '_self');
-      win.focus();      
+      var win = window.open(url, "_self");
+      win.focus();
     },
     async mountFilesTable() {
-      this.filesTable = [];      
-      let listFiles = await this.listStorageFiles();
-      for (let i = 0; i < listFiles.length; ++i) {
-        if (listFiles[i].key) {
-          let filename = listFiles[i].key          
-          if (filename.substring(filename.length - 3, filename.length) == "zip") {            
-            let status = await this.getFileStatus(filename + ".status")
-            let btn = {}
-            if (status["code"] == 0) {
-              btn.color = "orange"
-              btn.icon = "query_builder"
-            } else if (status["code"] == 1) {
-              btn.color = "orange"
-              btn.icon = "build_circle"
-            } else if (status["code"] == 2) {
-              btn.color = "green"
-              btn.icon = "check_circle"            
-            } else if (status["code"] == 3) {
-              btn.color = "red"
-              btn.icon = "error"
-            } else {
-              btn.color = "red"
-              btn.icon = "help"
+      try {
+        this.data = [];
+        let listFiles = await this.listStorageFiles();
+        for (let i = 0; i < listFiles.length; ++i) {          
+          if (listFiles[i].key) {
+            let filename = listFiles[i].key;            
+            if (
+              filename.substring(filename.length - 3, filename.length) == "zip"
+            ) {
+              var filestatus = filename.replace(".zip",".status");               
+              let status = await this.getFileStatus(filestatus);
+              let v1 = {};
+              let v2 = {};
+              v1.code=99;
+              v2.code=99;
+              v1.msg="not submitted"
+              v2.msg="not submitted"
+              if (status.versions) {
+                for (var j = 0; j < status.versions.length; j++) {
+                  if (status.versions[j].version == "v1") {
+                    v1.code = status.versions[j].code;
+                    v1.msg = status.versions[j].msg;
+                    v1.ver = "v1"
+                    v1.url = status.cloudfrontUrl + "/html/v1/" + status.uid + "/index.html";
+                  } else if ( status.versions[j].version == "v2") {
+                    v2.code = status.versions[j].code;
+                    v2.msg = status.versions[j].msg;
+                    v2.ver = "v2";
+                    v2.url = status.cloudfrontUrl + "/html/v2/" + status.uid + "/index.html";
+                  }
+                }
+              }
+              let uploadAt = this.$moment(listFiles[i].lastModified).format(
+                "DD MMM HH:mm"
+              );
+              let size = prettySize(listFiles[i].size);
+              let fileuuid =
+                filename.substring(0, filename.length - 4) +
+                "-" +
+                this.$moment
+                  .utc(listFiles[i].lastModified)
+                  .format("YYYYMMDDHHmm");
+              this.data.push({
+                key: filename,
+                v1: v1,
+                v2: v2,
+                size: size,
+                date: uploadAt,
+                fileuuid: fileuuid,
+              });
             }
-            let uploadAt = this.$moment(listFiles[i].lastModified).format('DD MMM HH:mm')
-            let size = prettySize(listFiles[i].size);
-            let code = filename.substring(0, filename.length - 4) + '-' + this.$moment.utc(listFiles[i].lastModified).format("YYYYMMDDHHmm")
-            this.filesTable.push({ key: filename, status: status, btn: btn, size: size, uploadat: uploadAt, code: code });            
           }
         }
+      } 
+      catch(error) {
+        console.log('error mountFilesTable: ', error);
       }
     },
 
-    async getFileStatus(filename) {
-      const statusUrl = await this.getFileStatusUrl(filename);      
+    async getFileStatus(statusfile) {
+      const statusUrl = await this.getFileStatusUrl(statusfile);
       const status = await this.readFileStatus(statusUrl);
       return status;
     },
 
-    getFileStatusUrl(filename) {
-      return Storage.get(filename, { 
+    getFileStatusUrl(statusfile) {
+      return Storage.get(statusfile, {
         level: "private",
         contentType: "application/json",
       });
@@ -156,22 +227,66 @@ export default {
 
     readFileStatus(url) {
       return axios({
-          url: url,
-          method: "GET",
-          responseType: "json"
-        }).then(response => response.data) 
+        url: url,
+        method: "GET",
+        responseType: "json",
+      }).then((response) => response.data);
     },
 
-    listStorageFiles() {
-      return Storage.list("", { level: "private" });
+    listStorageFiles() {      
+      return Storage.list(
+        "", { level: "private" }
+        ).catch((err) => console.log(err));
     },
 
-    deleteFile(fileName) {  
-        Storage.remove(fileName, { level: 'private' })
-            //.then(result => console.log(result))
-            .catch(err => console.log(err));
-        this.$emit('forceRenderFileTable');
-    }
-  }
+    removeDialog() {
+      if (this.selected.length === 0) {
+        this.alert_msg = "You have to select one or more files to be deleted."
+        this.alert = true;
+      }
+      else {
+        this.confirm = true
+      }
+    },
+
+    async removeRows() {
+      for (let i = 0; i < this.selected.length; ++i) {
+        var statusfile = this.selected[i].key.replace("zip","status")
+        var status  = await this.getFileStatus(statusfile)
+
+        for (var j = 0; j < status.versions.length; j++) {
+                   
+            console.log("dcm/" + status.versions[j].version + "/" + status.uid + "/");
+
+            Storage.remove("dcm/" + status.versions[j].version + "/" + status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
+
+            console.log("png/" + status.versions[j].version + "/" + status.uid + "/");
+            Storage.remove("png/" + status.versions[j].version + "/" + status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
+
+            console.log("html/" + status.versions[j].version + "/" + status.uid + "/");
+            Storage.remove("html/" + status.versions[j].version + "/" + status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
+
+            }
+
+            console.log(this.selected[i].key);
+            Storage.remove(this.selected[i].key, { level: "private" })
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
+
+            console.log(statusfile);
+            Storage.remove(statusfile, { level: "private" })
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
+
+         this.$emit("forceRenderFileTable");
+      }
+    },
+  },
 };
 </script>

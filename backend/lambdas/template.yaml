@@ -12,9 +12,9 @@ Globals:
   Function:
     AutoPublishAlias: live
     Handler: index.handler
-    MemorySize: 256
+    MemorySize: 512
     Runtime: python3.7
-    Timeout: 300
+    Timeout: 60
     Tracing: Active
 
 Resources:
@@ -22,7 +22,7 @@ Resources:
       Type: AWS::Serverless::LayerVersion
       Properties:
         Description: PyDicom
-        ContentUri: ./layers/pydicom.zip
+        ContentUri: ../layers/pydicom.zip
         CompatibleRuntimes:
           - python3.8
           - python3.7
@@ -31,7 +31,7 @@ Resources:
   Validation:
     Type: AWS::Serverless::Function 
     Properties:
-      CodeUri: ./lambdas/validation/
+      CodeUri: ./validation/
       Layers:
       - !Ref PyDicomLayer
       Policies:
@@ -42,19 +42,23 @@ Resources:
         - S3CrudPolicy:
             BucketName:
               !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
+      VpcConfig: 
+        SecurityGroupIds:
+          - '{{resolve:ssm:/covid19l3/securitygroup:1}}'
+        SubnetIds:
+          - '{{resolve:ssm:/covid19l3/lambdasubnet1:1}}'
+          - '{{resolve:ssm:/covid19l3/lambdasubnet2:1}}'
+      FileSystemConfigs:
+        - Arn: !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/efslambdaarn:1}}' 
+          LocalMountPath: /mnt/tmp
       Environment:
         Variables:
+          sqsEndpoint:
+            !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsvpce:1}}'
           Bucket:
             !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/s3Bucket:1}}'
-          queueUrl: 
-              !Join
-                - ''
-                - - 'https://sqs.'
-                  - !Sub '${AWS::Region}'
-                  - '.amazonaws.com/'
-                  - !Sub '${AWS::AccountId}'
-                  - '/'
-                  - !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
+          queueName: 
+            !Sub '{{resolve:ssm:/covid19l3/${gitHubBranch}/sqsname:1}}'
 
   LambdaInvokePermission:
     Type: 'AWS::Lambda::Permission'

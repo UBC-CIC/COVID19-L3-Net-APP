@@ -1,24 +1,32 @@
 <template>
-  <div class="q-pa-md row items-start q-gutter-md">
-    <div class="row">
-      <div class="col-4">
-        <q-card class="upload-card">
+  <div class="q-pa-md items-start q-gutter-md">
+
+        <q-card class="mycard">
           <q-card-section class="ubc-color">
             <div class="text-h6">Upload CT Scans</div>
-            <div class="text-subtitle2">
-              At this step the CT Scan will be saved into a temporarily storage due to its size. After uploading it you will be able to send it to be processed by the model.
-              <span
-                class="text-bold"
-              >The files will be deleted after 7 days</span>
-            </div>
+            <span class="text-subtitle2 text-left">
+              At this step the CT Scan will be saved into a temporarily storage due to its size. After uploading it you will be able to send it to be processed by the model.</span>
+            <span class="text-bold text-left">The files will be deleted after 7 days</span>
+          
           </q-card-section>
 
           <q-separator />
+
+          <q-card-section>
+            <div class="q-gutter-sm">
+              <div class="text-subtitle2">
+                Please select the ML model version to process the uploaded files. 
+              </div>
+              <q-checkbox v-model="mlversion" val="v1" label="v1" />
+              <q-checkbox v-model="mlversion" val="v2" label="v2 (latest)" />
+            </div>
+          </q-card-section>
 
           <q-card-actions>
             <q-file
               id="qfile"
               style="max-width: 450px"
+              max-files="50"
               v-model="files"
               @input="updateFiles"
               outlined
@@ -69,9 +77,9 @@
 
           <q-card-section><span class="text-body1">After all the files have been successfully uploaded you can move to the next step</span></q-card-section>
         </q-card>
-      </div>
-      <div class="col-1"></div>
-      <div class="col-7">
+
+      
+
         <q-card class="my-card">
           <q-item class="ubc-color"> 
             <q-item-section>
@@ -105,8 +113,7 @@
             <FileTable :key="updateTigger" @forceRenderFileTable="forceRenderFileTable" />
           </q-card-actions>           
         </q-card>
-      </div>
-    </div>
+
   </div>
 </template>
 
@@ -128,7 +135,8 @@ export default {
       uploadProgress: [],
       uploading: null,
       //max_upload_size: process.env.VUE_APP_MAX_UPLOAD_SIZE_BYTES,
-      updateTigger: 0
+      updateTigger: 0,
+      mlversion: [ "v2" ]
     };
   },
 
@@ -145,7 +153,12 @@ export default {
     },
 
     canUpload() {
-      return this.files !== null;
+      if (( this.files !== null) && (this.mlversion.length != 0)) {
+        return true;
+      }
+      else {
+        return false;
+      }
     }
   },
 
@@ -178,6 +191,7 @@ export default {
     },
 
     upload() {
+      var versions = this.mlversion;
       this.uploadProgress.forEach(f => {
         if (f.file.size === 0) {
           return;
@@ -186,17 +200,33 @@ export default {
         const reader = new FileReader();
         var vm = this;
 
-        reader.onload = function(event) {
-          var contents = event.target.result;
+        reader.onload = function(event) {   
+          
+          //Saving .status
+          var statusObj = {};          
+          statusObj.cloudfrontUrl = "";
+          statusObj.versions = []       
+          for (var i = 0; i < versions.length; i++) {
+            statusObj.versions.push({
+              code: 0,
+              msg: "Sent to validation",
+              version: versions[i]
+            })
+          }
+
+          var jsonString= JSON.stringify(statusObj);
+
+          var statusFilename = f.file.name.toLowerCase().replace(".zip",".status");
           Storage.put(
-            f.file.name.toLowerCase() + ".status",
-            '{ "code": 0, "msg": "Sent to validation" }',
+          statusFilename, jsonString,
             {
               level: "private",
               contentType: "application/json"
             }
           ).catch(error => console.log(error));
-
+          
+          //Saving ZIP file      
+          var contents = event.target.result;
           Storage.put(f.file.name.toLowerCase(), contents, {
             level: "private",
             contentType: "application/zip",
