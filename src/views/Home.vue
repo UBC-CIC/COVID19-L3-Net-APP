@@ -1,16 +1,13 @@
 <template>
-  <div class="q-pa-md row items-start q-gutter-md">
-    <div class="row">
-      <div class="col-8">
-        <q-card class="upload-card">
+  <div class="q-pa-md items-start q-gutter-md">
+
+        <q-card class="mycard">
           <q-card-section class="ubc-color">
             <div class="text-h6">Upload CT Scans</div>
-            <div class="text-subtitle2">
-              At this step the CT Scan will be saved into a temporarily storage due to its size. After uploading it you will be able to send it to be processed by the model.
-              <span
-                class="text-bold"
-              >The files will be deleted after 7 days</span>
-            </div>
+            <span class="text-subtitle2 text-left">
+              At this step the CT Scan will be saved into a temporarily storage due to its size. After uploading it you will be able to send it to be processed by the model.</span>
+            <span class="text-bold text-left">The files will be deleted after 7 days</span>
+          
           </q-card-section>
 
           <q-separator />
@@ -80,10 +77,9 @@
 
           <q-card-section><span class="text-body1">After all the files have been successfully uploaded you can move to the next step</span></q-card-section>
         </q-card>
-      </div>
-      </div>
+
       
-      <div class="row">
+
         <q-card class="my-card">
           <q-item class="ubc-color"> 
             <q-item-section>
@@ -117,7 +113,7 @@
             <FileTable :key="updateTigger" @forceRenderFileTable="forceRenderFileTable" />
           </q-card-actions>           
         </q-card>
-      </div>
+
   </div>
 </template>
 
