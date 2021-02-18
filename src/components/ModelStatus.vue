@@ -7,6 +7,8 @@
           ? 'black'
           : row.code == '3'
           ? 'red'
+          : row.code == '99'
+          ? 'gray'
           : 'orange'
       "
       size="lg"
@@ -15,9 +17,11 @@
           ? 'analytics'
           : row.code == '3'
           ? 'error'
+          : row.code == '99'
+          ? 'hide_source'
           : 'query_builder'
       "
-      @click="showModel()"
+      @click="showModel(row.url)"
     >
       <q-tooltip
         content-class="bg-black"
@@ -30,8 +34,6 @@
 </template>
 
 <script type="text/javascript">
-import axios from "axios";
-import { Storage } from "aws-amplify";
 
 export default {
   name: "ModelStatus",
@@ -42,30 +44,9 @@ export default {
       }      
   },
   methods: {
-    async getFileStatus(statusfile) {
-        const statusUrl = await this.getFileStatusUrl(statusfile);
-        const status = await this.readFileStatus(statusUrl);
-      return status;
-    },
-
-    getFileStatusUrl(statusfile) {
-      return Storage.get(statusfile, {
-        level: "private",
-        contentType: "application/json",
-      });
-    },
-
-    readFileStatus(url) {
-      return axios({
-        url: url,
-        method: "GET",
-        responseType: "json",
-      }).then((response) => response.data);
-    },
-
-    showModel() {
-        console.log(this.row.ver)
-        console.log(this.row.code)
+    showModel(url) {
+        console.log(url);
+        window.open(url,'_blank');
     }
   }
 };

@@ -176,10 +176,12 @@ export default {
                     v1.code = status.versions[j].code;
                     v1.msg = status.versions[j].msg;
                     v1.ver = "v1"
+                    v1.url = status.cloudfrontUrl + "/html/v1/" + status.uid + "/index.html";
                   } else if ( status.versions[j].version == "v2") {
                     v2.code = status.versions[j].code;
                     v2.msg = status.versions[j].msg;
-                    v2.ver = "v2"
+                    v2.ver = "v2";
+                    v2.url = status.cloudfrontUrl + "/html/v2/" + status.uid + "/index.html";
                   }
                 }
               }
