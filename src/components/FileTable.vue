@@ -13,7 +13,7 @@
       :selected.sync="selected"
     >
       <template v-slot:top>
-        <q-btn round color="deep-orange" icon="delete_outlined" @click="removeDialog" />
+        <q-btn color="deep-orange" icon="delete_outline" @click="removeDialog" />
         <q-space />
         <!-- <q-input borderless dense debounce="300" color="primary" v-model="filter">
           <template v-slot:append>
@@ -251,32 +251,38 @@ export default {
 
     async removeRows() {
       for (let i = 0; i < this.selected.length; ++i) {
-        console.log(this.selected[i].key);
         var statusfile = this.selected[i].key.replace("zip","status")
         var status  = await this.getFileStatus(statusfile)
 
-        console.log("dcm/"+status.uid);
+        for (var j = 0; j < status.versions.length; j++) {
+                   
+            console.log("dcm/" + status.versions[j].version +status.uid + "/");
 
-        Storage.remove(this.selected[i].key, { level: "private" })
-           //.then(result => console.log(result))
-           .catch((err) => console.log(err));
+            Storage.remove("dcm/" + status.versions[j].version +status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
 
-        Storage.remove(statusfile, { level: "private" })
-           //.then(result => console.log(result))
-           .catch((err) => console.log(err));
+            console.log("png/" + status.versions[j].version +status.uid + "/");
+            Storage.remove("png/" + status.versions[j].version +status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
 
-        Storage.remove("dcm/"+status.uid+"/")
-           //.then(result => console.log(result))
-           .catch((err) => console.log(err));
+            console.log("html/" + status.versions[j].version +status.uid + "/");
+            Storage.remove("html/" + status.versions[j].version +status.uid + "/")
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
 
-        Storage.remove("png/"+status.uid+"/")
-          //.then(result => console.log(result))
-          .catch((err) => console.log(err));
+            }
 
-        Storage.remove("html/"+status.uid)
-           //.then(result => console.log(result))
-           .catch((err) => console.log(err));
+            console.log(this.selected[i].key);
+            Storage.remove(this.selected[i].key, { level: "private" })
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
 
+            console.log(statusfile);
+            Storage.remove(statusfile, { level: "private" })
+              //.then(result => console.log(result))
+              .catch((err) => console.log(err));
 
          this.$emit("forceRenderFileTable");
       }
