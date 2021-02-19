@@ -256,19 +256,19 @@ export default {
 
         for (var j = 0; j < status.versions.length; j++) {
                    
-            console.log("dcm/" + status.versions[j].version + "/" + status.uid + "/");
+            console.log("dcm/" + status.versions[j].version + "/" + status.uid);
 
-            Storage.remove("dcm/" + status.versions[j].version + "/" + status.uid + "/")
+            Storage.remove("dcm/" + status.versions[j].version + "/" + status.uid)
               //.then(result => console.log(result))
               .catch((err) => console.log(err));
 
-            console.log("png/" + status.versions[j].version + "/" + status.uid + "/");
-            Storage.remove("png/" + status.versions[j].version + "/" + status.uid + "/")
+            console.log("png/" + status.versions[j].version + "/" + status.uid);
+            Storage.remove("png/" + status.versions[j].version + "/" + status.uid)
               //.then(result => console.log(result))
               .catch((err) => console.log(err));
 
-            console.log("html/" + status.versions[j].version + "/" + status.uid + "/");
-            Storage.remove("html/" + status.versions[j].version + "/" + status.uid + "/")
+            console.log("html/" + status.versions[j].version + "/" + status.uid);
+            Storage.remove("html/" + status.versions[j].version + "/" + status.uid)
               //.then(result => console.log(result))
               .catch((err) => console.log(err));
 

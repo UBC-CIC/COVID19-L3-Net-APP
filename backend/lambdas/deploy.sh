@@ -1,10 +1,11 @@
 #!/bin/bash
 if [[ ! -n "$1" ]]; then
-    echo "please, provide the github branch name."
-    exit 1
+    GITBRANCH="master"
+else
+    GITBRANCH=$1
 fi
 
-GITBRANCH=$1
+echo "Using GIT BRANCH: $GITBRANCH"
 
 cd ../layers
 ./createLayer.sh
